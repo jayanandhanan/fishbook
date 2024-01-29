@@ -66,8 +66,8 @@ class _ForgotPasswordState extends State<ForgotPassword> {
                       // Reset email sent successfully
                       _showMessageDialog(
                         context,
-                        'Success',
-                        'Password reset email sent successfully!',
+                        'Sent!',
+                        'Check your e-mail',
                       );
                     } catch (e) {
                     

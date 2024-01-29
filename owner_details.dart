@@ -22,54 +22,55 @@ class _OwnerDetailsPageState extends State<OwnerDetailsPage> {
       appBar: AppBar(
         title: Text('Owner Details'),
       ),
-      body: Column(
-        children: [
-          ElevatedButton(
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (BuildContext context) {
-                  return _buildAddOrUpdateOwnerDialog(context);
-                },
-              );
-            },
-            child: Text('Add Owner'),
-          ),
-          _buildOwnerTable(),
-        ],
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            ElevatedButton(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (BuildContext context) {
+                    return _buildAddOrUpdateOwnerDialog(context);
+                  },
+                );
+              },
+              child: Text('Add Owner'),
+            ),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: _buildOwnerTable(),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildOwnerTable() {
-    return Expanded(
-      child: StreamBuilder<QuerySnapshot>(
-        stream: _getOwnerDetailsStream(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
-              child: Text('Error: ${snapshot.error}'),
-            );
-          }
-
-          if (snapshot.connectionState != ConnectionState.active) {
-            return Center(
-              child: CircularProgressIndicator(),
-            );
-          }
-
-          List<DocumentSnapshot> ownerDetails = snapshot.data?.docs ?? [];
-
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              showCheckboxColumn: false,
-              columns: _buildTableColumns(),
-              rows: _buildTableRows(ownerDetails),
-            ),
+    return StreamBuilder<QuerySnapshot>(
+      stream: _getOwnerDetailsStream(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Text('Error: ${snapshot.error}'),
           );
-        },
-      ),
+        }
+
+        if (snapshot.connectionState != ConnectionState.active) {
+          return Center(
+            child: CircularProgressIndicator(),
+          );
+        }
+
+        List<DocumentSnapshot> ownerDetails = snapshot.data?.docs ?? [];
+
+        return DataTable(
+          showCheckboxColumn: false,
+          columns: _buildTableColumns(),
+          columnSpacing: 16.0, // Adjust the column spacing here
+          rows: _buildTableRows(ownerDetails),
+        );
+      },
     );
   }
 
@@ -172,16 +173,15 @@ class _OwnerDetailsPageState extends State<OwnerDetailsPage> {
   }
 
   Stream<QuerySnapshot<Map<String, dynamic>>> _getOwnerDetailsStream() async* {
-  final userSnapshot = await _getCurrentUser();
-  final organizationId = userSnapshot.data()?['organizationId'];
+    final userSnapshot = await _getCurrentUser();
+    final organizationId = userSnapshot.data()?['organizationId'];
 
-  yield* FirebaseFirestore.instance
-      .collection('organizations')
-      .doc(organizationId)
-      .collection('ownerdetails')
-      .snapshots();
-}
-
+    yield* FirebaseFirestore.instance
+        .collection('organizations')
+        .doc(organizationId)
+        .collection('ownerdetails')
+        .snapshots();
+  }
 
   Future<DocumentSnapshot<Map<String, dynamic>>> _getCurrentUser() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -197,7 +197,8 @@ class _OwnerDetailsPageState extends State<OwnerDetailsPage> {
 
     if (userRole == 'Headowner') {
       final organizationId = userSnapshot.data()?['organizationId'];
-      final ownerDetailsRef = FirebaseFirestore.instance.collection('organizations').doc(organizationId).collection('ownerdetails');
+      final ownerDetailsRef =
+          FirebaseFirestore.instance.collection('organizations').doc(organizationId).collection('ownerdetails');
 
       await ownerDetailsRef.add({
         'name': ownerNameController.text,
@@ -211,12 +212,12 @@ class _OwnerDetailsPageState extends State<OwnerDetailsPage> {
         emailController.clear();
       });
     } else {
-       // If the user's role is not 'Headowner', display a message
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('You do not have permission to add owners.'),
-            ),
-          );
+      // If the user's role is not 'Headowner', display a message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('You do not have permission to add owners.'),
+        ),
+      );
     }
   }
 
@@ -226,7 +227,8 @@ class _OwnerDetailsPageState extends State<OwnerDetailsPage> {
 
     if (userRole == 'Headowner') {
       final organizationId = userSnapshot.data()?['organizationId'];
-      final ownerDetailsRef = FirebaseFirestore.instance.collection('organizations').doc(organizationId).collection('ownerdetails');
+      final ownerDetailsRef =
+          FirebaseFirestore.instance.collection('organizations').doc(organizationId).collection('ownerdetails');
 
       await ownerDetailsRef.doc(ownerDetailId).update({
         'name': ownerNameController.text,
@@ -243,12 +245,12 @@ class _OwnerDetailsPageState extends State<OwnerDetailsPage> {
         selectedRows.clear();
       });
     } else {
-        // If the user's role is not 'Headowner', display a message
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('You do not have permission to add owners.'),
-            ),
-          );
+      // If the user's role is not 'Headowner', display a message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('You do not have permission to add owners.'),
+        ),
+      );
     }
   }
 
@@ -278,7 +280,8 @@ class _OwnerDetailsPageState extends State<OwnerDetailsPage> {
 
     if (userRole == 'Headowner') {
       final organizationId = userSnapshot.data()?['organizationId'];
-      final ownerDetailsRef = FirebaseFirestore.instance.collection('organizations').doc(organizationId).collection('ownerdetails');
+      final ownerDetailsRef =
+          FirebaseFirestore.instance.collection('organizations').doc(organizationId).collection('ownerdetails');
 
       await ownerDetailsRef.doc(ownerDetail.id).delete();
 
@@ -286,12 +289,12 @@ class _OwnerDetailsPageState extends State<OwnerDetailsPage> {
         selectedRows.remove(ownerDetail.id);
       });
     } else {
-        // If the user's role is not 'Headowner', display a message
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('You do not have permission to delete.'),
-            ),
-          );
+      // If the user's role is not 'Headowner', display a message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('You do not have permission to delete.'),
+        ),
+      );
     }
   }
 }

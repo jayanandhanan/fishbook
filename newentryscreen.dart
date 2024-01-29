@@ -11,6 +11,8 @@ class NewEntryScreen extends StatefulWidget {
 }
 
 class _NewEntryScreenState extends State<NewEntryScreen> {
+ 
+
   final FirebaseAuth _auth = FirebaseAuth.instance;
   TextEditingController returnDateController = TextEditingController();
   TextEditingController expenseNameController = TextEditingController();
@@ -19,6 +21,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   TextEditingController crewNameController = TextEditingController();
   TextEditingController crewPhoneController = TextEditingController();
   TextEditingController crewAmountController = TextEditingController();
+
 
   String selectedMonth = 'Jan';
   DateTime? selectedSailingDate;
@@ -36,7 +39,17 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   List<Map<String, dynamic>> expensesList = [];
   List<Map<String, dynamic>> revenuesList = [];
 
+// Define a Map to hold amount controllers for each crew member
+Map<String, TextEditingController> crewAmountControllers = {};
+Map<String, TextEditingController> ownerInvestmentControllers = {};
+
+ @override
+void dispose() {
+  super.dispose();
  
+  crewAmountControllers.values.forEach((controller) => controller.dispose());
+  ownerInvestmentControllers.values.forEach((controller) => controller.dispose());
+}
 
   @override
   Widget build(BuildContext context) {
@@ -150,18 +163,23 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                 },
                 child: Text('Add Revenue'),
               ),
-              SizedBox(height: 20),
+              
 
               // DataTable to display entered expenses and revenues
-              DataTable(
-                columns: [
-                  DataColumn(label: Text(' Revenue Amount')),
-                  DataColumn(label: Text('Expense Name')),
-                  DataColumn(label: Text('Expense Amount')),
-                  DataColumn(label: Text('Action')),
-                ],
-                rows: _buildDataRows(),
-              ),
+            SingleChildScrollView(
+  scrollDirection: Axis.horizontal,
+  child: DataTable(
+    columnSpacing: 16.0,
+    columns: [
+      DataColumn(label: Text('Revenue Amount')),
+      DataColumn(label: Text('Expense Name')),
+      DataColumn(label: Text('Expense Amount')),
+      DataColumn(label: Text('Action')),
+    ],
+    rows: _buildDataRows(),
+  ),
+),
+
               SizedBox(height: 20),
 
               // Display Total Profit
@@ -177,16 +195,20 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
               ),
 
               if (selectedCrewMemberIds.isNotEmpty)
-                DataTable(
-                  columns: [
-                    DataColumn(label: Text('Crew Member Name')),
-                    DataColumn(label: Text('Crew Member Phone')),
-                    DataColumn(label: Text('Crew Member Email')),
-                    DataColumn(label: Text('Amount')),
-                  
-                  ],
-                  rows: _buildCrewMembersRows(),
-                ),
+              SingleChildScrollView(
+  scrollDirection: Axis.horizontal,
+  child: DataTable(
+    columnSpacing: 16.0, // Adjust the spacing between columns as needed
+    columns: [
+      DataColumn(label: Text('Crew Member Name')),
+      DataColumn(label: Text('Crew Member Phone')),
+      DataColumn(label: Text('Crew Member Email')),
+      DataColumn(label: Text('Amount')),
+    ],
+    rows: _buildCrewMembersRows(),
+  ),
+),
+
               SizedBox(height: 20),
 
               // Select Owners
@@ -198,21 +220,23 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
               ),
 
               if (selectedOwnerIds.isNotEmpty)
-                DataTable(
-                  columns: [
-                    DataColumn(label: Text('Owner Name')),
-                    DataColumn(label: Text('Owner Phone')),
-                    DataColumn(label: Text('Owner Email')),
-                    DataColumn(label: Text('Invest')),
-                    DataColumn(label: Text('Share')),
-                   
-                  ],
-                  rows: _buildOwnersRows(),
-                ),
-              SizedBox(height: 20),
+               SingleChildScrollView(
+  scrollDirection: Axis.horizontal,
+  child: DataTable(
+    columnSpacing: 16.0, // Adjust the spacing between columns as needed
+    columns: [
+      DataColumn(label: Text('Owner Name')),
+      DataColumn(label: Text('Owner Phone')),
+      DataColumn(label: Text('Owner Email')),
+      DataColumn(label: Text('Invest')),
+      DataColumn(label: Text('Share')),
+    ],
+    rows: _buildOwnersRows(),
+  ),
+),
 
-              // Total Invest
-              Text('Total Invest: $totalInvest'),
+             
+              
 
               SizedBox(height: 20),
 
@@ -464,117 +488,131 @@ void _calculateShareForOwners() {
     return total;
   }
 
-  List<DataRow> _buildCrewMembersRows() {
-    return crewMembers
-        .where((crewMember) => selectedCrewMemberIds.contains(crewMember.id))
-        .map((crewMember) {
-      return DataRow(
-        cells: [
-          DataCell(Text(crewMember['name']?.toString() ?? '')),
-          DataCell(Text(crewMember['phone']?.toString() ?? '')),
-          DataCell(Text(crewMember['email']?.toString() ?? '')),
-          DataCell(
-            TextFormField(
-              initialValue: '0.0',
-              keyboardType: TextInputType.number,
-              onChanged: (value) {
-                setState(() {
-                  crewAmounts[crewMember.id] = double.tryParse(value) ?? 0;
-                });
-              },
-              decoration: InputDecoration(labelText: 'Enter Amount'),
-            ),
+ List<DataRow> _buildCrewMembersRows() {
+  return crewMembers
+      .where((crewMember) => selectedCrewMemberIds.contains(crewMember.id))
+      .map((crewMember) {
+    String memberId = crewMember.id;
+    late TextEditingController amountController;
+    if (crewAmountControllers.containsKey(memberId)) {
+      amountController = crewAmountControllers[memberId]!;
+    } else {
+      amountController = TextEditingController(
+          text: (crewAmounts[memberId] ?? 0.0).toString());
+      crewAmountControllers[memberId] = amountController;
+    }
+
+    return DataRow(
+      cells: [
+        DataCell(Text(crewMember['name']?.toString() ?? '')),
+        DataCell(Text(crewMember['phone']?.toString() ?? '')),
+        DataCell(Text(crewMember['email']?.toString() ?? '')),
+        DataCell(
+          TextFormField(
+            controller: amountController,
+            keyboardType: TextInputType.number,
+            onChanged: (value) {
+              double amount = double.tryParse(value) ?? 0.0;
+              setState(() {
+                crewAmounts[memberId] = amount;
+              });
+            },
+           
           ),
-        
-        ],
-      );
-    }).toList();
-  }
+        ),
+      ],
+    );
+  }).toList();
+}
 
 
 Future<void> _selectCrewMembers(BuildContext context) async {
   try {
-    // Step 1: Retrieve the current user
+    // Retrieve the current user
     User? user = _auth.currentUser;
 
     if (user != null) {
-      // Step 2: Retrieve user's organization ID from Firestore
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      // Retrieve user's organization ID from Firestore
+      DocumentSnapshot userDoc =
+          await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
 
       if (userDoc.exists) {
-        String organizationId = userDoc['organizationId']; // Assuming you have an 'organizationId' field for the user
+        String organizationId = userDoc['organizationId'];
 
         // Proceed with your dialog to select crew members using the obtained organizationId
-      await showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Select Crew Members'),
-          content: StatefulBuilder(
-            builder: (BuildContext context, StateSetter setState) {
-              return Container(
-                height: 300,
-                width: double.maxFinite,
-                child: FutureBuilder(
-                 future: FirebaseFirestore.instance
+        await showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Text('Select Crew Members'),
+              content: StatefulBuilder(
+                builder: (BuildContext context, StateSetter setState) {
+                  return Container(
+                    height: 300,
+                    width: double.maxFinite,
+                    child: FutureBuilder(
+                      future: FirebaseFirestore.instance
                           .collection('organizations')
                           .doc(organizationId)
                           .collection('crewmemberdetails')
                           .get(),
-                  builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return CircularProgressIndicator();
-                    }
+                      builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return CircularProgressIndicator();
+                        }
 
-                    if (snapshot.hasError) {
-                      return Text('Error: ${snapshot.error}');
-                    }
+                        if (snapshot.hasError) {
+                          return Text('Error: ${snapshot.error}');
+                        }
 
-                    crewMembers = snapshot.data?.docs ?? [];
+                        crewMembers = snapshot.data?.docs ?? [];
 
-                    return ListView.builder(
-                      itemCount: crewMembers.length,
-                      itemBuilder: (BuildContext context, int index) {
-                        DocumentSnapshot crewMember = crewMembers[index];
-                        bool isSelected = selectedCrewMemberIds.contains(crewMember.id);
+                        return ListView.builder(
+                          itemCount: crewMembers.length,
+                          itemBuilder: (BuildContext context, int index) {
+                            DocumentSnapshot crewMember = crewMembers[index];
+                            bool isSelected = selectedCrewMemberIds.contains(crewMember.id);
 
-                        return CheckboxListTile(
-                          title: Text(crewMember['name']?.toString() ?? ''),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(crewMember['phone']?.toString() ?? ''),
-                              Text(crewMember['email']?.toString() ?? ''),
-                            ],
-                          ),
-                          value: isSelected,
-                          onChanged: (bool? newBool) {
-                            setState(() {
-                              if (newBool != null) {
-                                if (newBool) {
-                                  selectedCrewMemberIds.add(crewMember.id);
-                                } else {
-                                  selectedCrewMemberIds.remove(crewMember.id);
-                                }
-                              }
-                            });
+                            return CheckboxListTile(
+                              title: Text(crewMember['name']?.toString() ?? ''),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(crewMember['phone']?.toString() ?? ''),
+                                  Text(crewMember['email']?.toString() ?? ''),
+                                ],
+                              ),
+                              value: isSelected,
+                              onChanged: (bool? newBool) {
+                                setState(() {
+                                  if (newBool != null) {
+                                    if (newBool) {
+                                      selectedCrewMemberIds.add(crewMember.id);
+                                    } else {
+                                      selectedCrewMemberIds.remove(crewMember.id);
+                                      // Dispose of the amount controller when unselecting
+                                      crewAmountControllers[crewMember.id]?.dispose();
+                                      crewAmountControllers.remove(crewMember.id);
+                                    }
+                                  }
+                                });
+                              },
+                            );
                           },
                         );
                       },
-                    );
+                    ),
+                  );
+                },
+              ),
+              actions: [
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    setState(() {});
                   },
+                  child: Text('Done'),
                 ),
-              );
-            },
-          ),
-          actions: [
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                setState(() {});
-              },
-              child: Text('Done'),
-),
               ],
             );
           },
@@ -594,126 +632,129 @@ List<DataRow> _buildOwnersRows() {
   return owners
       .where((owner) => selectedOwnerIds.contains(owner.id))
       .map((owner) {
-    Map<String, dynamic>? ownerData = owner.data() as Map<String, dynamic>?;
+    String ownerId = owner.id;
+    late TextEditingController investmentController;
+    if (ownerInvestmentControllers.containsKey(ownerId)) {
+      investmentController = ownerInvestmentControllers[ownerId]!;
+    } else {
+      investmentController = TextEditingController(
+          text: (ownerInvestments[ownerId] ?? 0.0).toString());
+      ownerInvestmentControllers[ownerId] = investmentController;
+    }
 
-    double share = ownerShares[owner.id] ?? 0;
-
-      return DataRow(
-        cells: [
-          DataCell(Text(ownerData?['name']?.toString() ?? '')),
-          DataCell(Text(ownerData?['phone']?.toString() ?? '')),
-          DataCell(Text(ownerData?['email']?.toString() ?? '')),
-
-        
+    return DataRow(
+      cells: [
+        DataCell(Text(owner['name']?.toString() ?? '')),
+        DataCell(Text(owner['phone']?.toString() ?? '')),
+        DataCell(Text(owner['email']?.toString() ?? '')),
         DataCell(
           TextFormField(
-            initialValue: '0',  // Set initial value to '0'
+            controller: investmentController,
             keyboardType: TextInputType.number,
             onChanged: (value) {
+              double investment = double.tryParse(value) ?? 0.0;
               setState(() {
-                ownerInvestments[owner.id] = double.tryParse(value) ?? 0;
-                _calculateShareForOwners();
-             
+                ownerInvestments[ownerId] = investment;
+                  _calculateShareForOwners();
               });
             },
-            decoration: InputDecoration(labelText: 'Enter Invest'),
+           
           ),
         ),
-        DataCell(
-          TextFormField(
-            enabled: false,
-            initialValue: '0.0',  // Set initial value to '0.0'
-          ),
-        ),
-       
+        DataCell(Text('0.0')), // Always display '0' for double share
       ],
     );
   }).toList();
 }
 
+
 Future<void> _selectOwners(BuildContext context) async {
   try {
-    // Step 1: Retrieve the current user
+    // Retrieve the current user
     User? user = _auth.currentUser;
 
     if (user != null) {
-      // Step 2: Retrieve user's organization ID from Firestore
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      // Retrieve user's organization ID from Firestore
+      DocumentSnapshot userDoc =
+          await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
 
       if (userDoc.exists) {
-        String organizationId = userDoc['organizationId']; // Assuming you have an 'organizationId' field for the user
+        String organizationId = userDoc['organizationId'];
 
         // Proceed with your dialog to select owners using the obtained organizationId
-     await showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        title: Text('Select Owners'),
-        content: StatefulBuilder(
-          builder: (BuildContext context, StateSetter setState) {
-            return Container(
-              height: 300,
-              width: double.maxFinite,
-              child: FutureBuilder(
-                 future: FirebaseFirestore.instance
+        await showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Text('Select Owners'),
+              content: StatefulBuilder(
+                builder: (BuildContext context, StateSetter setState) {
+                  return Container(
+                    height: 300,
+                    width: double.maxFinite,
+                    child: FutureBuilder(
+                      future: FirebaseFirestore.instance
                           .collection('organizations')
                           .doc(organizationId)
                           .collection('ownerdetails')
                           .get(),
-                builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return CircularProgressIndicator();
-                  }
+                      builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return CircularProgressIndicator();
+                        }
 
-                  if (snapshot.hasError) {
-                    return Text('Error: ${snapshot.error}');
-                  }
+                        if (snapshot.hasError) {
+                          return Text('Error: ${snapshot.error}');
+                        }
 
-                  owners = snapshot.data!.docs;
+                        owners = snapshot.data?.docs ?? [];
 
-                  return ListView.builder(
-                    itemCount: owners.length,
-                    itemBuilder: (BuildContext context, int index) {
-                      DocumentSnapshot owner = owners[index];
-                      bool isChecked = selectedOwnerIds.contains(owner.id);
+                        return ListView.builder(
+                          itemCount: owners.length,
+                          itemBuilder: (BuildContext context, int index) {
+                            DocumentSnapshot owner = owners[index];
+                            bool isChecked = selectedOwnerIds.contains(owner.id);
 
-                      return CheckboxListTile(
-                        title: Text(owner['name']?.toString() ?? ''),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(owner['phone']?.toString() ?? ''),
-                            Text(owner['email']?.toString() ?? ''),
-                          ],
-                        ),
-                        value: isChecked,
-                        onChanged: (bool? newBool) {
-                          setState(() {
-                            if (newBool != null) {
-                              if (newBool) {
-                                selectedOwnerIds.add(owner.id);
-                              } else {
-                                selectedOwnerIds.remove(owner.id);
-                              }
-                            }
-                          });
-                        },
-                      );
-                    },
+                            return CheckboxListTile(
+                              title: Text(owner['name']?.toString() ?? ''),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(owner['phone']?.toString() ?? ''),
+                                  Text(owner['email']?.toString() ?? ''),
+                                ],
+                              ),
+                              value: isChecked,
+                              onChanged: (bool? newBool) {
+                                setState(() {
+                                  if (newBool != null) {
+                                    if (newBool) {
+                                      selectedOwnerIds.add(owner.id);
+                                    } else {
+                                      selectedOwnerIds.remove(owner.id);
+                                      // Dispose of the investment controller when unselecting
+                                      ownerInvestmentControllers[owner.id]?.dispose();
+                                      ownerInvestmentControllers.remove(owner.id);
+                                    }
+                                  }
+                                });
+                              },
+                            );
+                          },
+                        );
+                      },
+                    ),
                   );
                 },
               ),
-            );
-          },
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              setState(() {});
-            },
-            child: Text('Done'),
-          ),
+              actions: [
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    setState(() {});
+                  },
+                  child: Text('Done'),
+                ),
               ],
             );
           },
@@ -728,8 +769,6 @@ Future<void> _selectOwners(BuildContext context) async {
     print('Error selecting owners: $e');
   }
 }
-
-
 
 Future<void> _addNewEntry() async {
   try {

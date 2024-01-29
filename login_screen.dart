@@ -1,15 +1,15 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:fishbook/home_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:fishbook/crewmemberhomepage.dart';
 import 'package:flutter/material.dart';
-import 'package:fishbook/constants.dart';
+import 'package:fishbook/home_screen.dart';
 import 'package:fishbook/signup_screen.dart';
 import 'package:fishbook/forgot_password_screen.dart'; 
 
 class LoginScreen extends StatefulWidget {
   static String id = "login_screen";
-  final String userType;
 
-  const LoginScreen({Key? key, required this.userType}) : super(key: key);
+  const LoginScreen({Key? key, required String userType}) : super(key: key);
 
   @override
   LoginScreenState createState() => LoginScreenState();
@@ -63,7 +63,12 @@ class LoginScreenState extends State<LoginScreen> {
                   onChanged: (value) {
                     email = value;
                   },
-                  decoration: kTextFieldDecoration.copyWith(hintText: 'Enter your email'),
+                  decoration: InputDecoration(
+                    hintText: 'Enter your email',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(10.0)),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 8.0),
                 // Display password input
@@ -73,7 +78,12 @@ class LoginScreenState extends State<LoginScreen> {
                   onChanged: (value) {
                     password = value;
                   },
-                  decoration: kTextFieldDecoration.copyWith(hintText: 'Enter your password'),
+                  decoration: InputDecoration(
+                    hintText: 'Enter your password',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(10.0)),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 24.0),
                 ElevatedButton(
@@ -86,29 +96,46 @@ class LoginScreenState extends State<LoginScreen> {
                       showSpinner = true;
                     });
 
-                    // Login to an existing account with email
                     try {
-                      await _auth.signInWithEmailAndPassword(email: email, password: password);
-
-                      setState(() {
-                        showSpinner = false;
-                      });
-
-                      // Navigate to the ChatScreen after successful login
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const HomeScreen()),
+                      final userCredential = await _auth.signInWithEmailAndPassword(
+                        email: email,
+                        password: password,
                       );
 
-                      // Show success dialog
-                      _showDialog('Success', 'Successfully logged in!');
-                    } catch (e) {
-                      print(e);
+                      final userDoc = await FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(userCredential.user!.uid)
+                          .get();
+
+                      if (userDoc.exists) {
+                        final organizationId = userDoc['organizationId'];
+                        final role = userDoc['role'];
+
+                        if (role == 'Crewmember') {
+                          // Navigate to CrewmemberHomePage
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => CrewmemberHomePage(organizationId: organizationId),
+                            ),
+                          );
+                        } else {
+                          // Navigate to HomeScreen (for Headowner and Co-owner)
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => HomeScreen(organizationId: organizationId),
+                            ),
+                          );
+                        }
+                      }
+
                       setState(() {
                         showSpinner = false;
                       });
+                    } catch (e) {
+                      print(e);
 
-                      // Show error message
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Invalid email or password!'),
@@ -116,13 +143,12 @@ class LoginScreenState extends State<LoginScreen> {
                         ),
                       );
 
-                      // Show error dialog
-                      _showDialog('Error', 'Invalid email or password. Please try again.');
+                      setState(() {
+                        showSpinner = false;
+                      });
                     }
                   },
                 ),
-
-                // Add Sign Up button inside a container
                 Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
@@ -143,8 +169,6 @@ class LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-
-                // Add Forgot Password button
                 TextButton(
                   onPressed: () {
                     // Navigate to the ResetPassword screen
@@ -163,26 +187,6 @@ class LoginScreenState extends State<LoginScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  void _showDialog(String title, String content) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(title),
-          content: Text(content),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
     );
   }
 }

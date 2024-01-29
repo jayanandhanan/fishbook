@@ -22,54 +22,55 @@ class CrewMembersPageState extends State<CrewMembersPage> {
       appBar: AppBar(
         title: Text('Crew Member Details'),
       ),
-      body: Column(
-        children: [
-          ElevatedButton(
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (BuildContext context) {
-                  return _buildAddOrUpdateCrewMemberDialog(context);
-                },
-              );
-            },
-            child: Text('Add Crew Member'),
-          ),
-          _buildCrewMemberTable(),
-        ],
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            ElevatedButton(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (BuildContext context) {
+                    return _buildAddOrUpdateCrewMemberDialog(context);
+                  },
+                );
+              },
+              child: Text('Add Crew Member'),
+            ),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: _buildCrewMemberTable(),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildCrewMemberTable() {
-    return Expanded(
-      child: StreamBuilder<QuerySnapshot>(
-        stream: _getCrewMemberDetailsStream(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
-              child: Text('Error: ${snapshot.error}'),
-            );
-          }
-
-          if (snapshot.connectionState != ConnectionState.active) {
-            return Center(
-              child: CircularProgressIndicator(),
-            );
-          }
-
-          List<DocumentSnapshot> crewmemberDetails = snapshot.data?.docs ?? [];
-
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              showCheckboxColumn: false,
-              columns: _buildTableColumns(),
-              rows: _buildTableRows(crewmemberDetails),
-            ),
+    return StreamBuilder<QuerySnapshot>(
+      stream: _getCrewMemberDetailsStream(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Text('Error: ${snapshot.error}'),
           );
-        },
-      ),
+        }
+
+        if (snapshot.connectionState != ConnectionState.active) {
+          return Center(
+            child: CircularProgressIndicator(),
+          );
+        }
+
+        List<DocumentSnapshot> crewmemberDetails = snapshot.data?.docs ?? [];
+
+        return DataTable(
+          showCheckboxColumn: false,
+          columns: _buildTableColumns(),
+          columnSpacing: 16.0,
+          rows: _buildTableRows(crewmemberDetails),
+        );
+      },
     );
   }
 
@@ -99,13 +100,13 @@ class CrewMembersPageState extends State<CrewMembersPage> {
         },
         cells: [
           DataCell(
-            Text(crewmemberDetail['name'].toString()), // Display 'name' field
+            Text(crewmemberDetail['name'].toString()),
           ),
           DataCell(
-            Text(crewmemberDetail['phone'].toString()), // Display 'phone' field
+            Text(crewmemberDetail['phone'].toString()),
           ),
           DataCell(
-            Text(crewmemberDetail['email'].toString()), // Display 'email' field
+            Text(crewmemberDetail['email'].toString()),
           ),
           DataCell(
             Row(
@@ -132,12 +133,12 @@ class CrewMembersPageState extends State<CrewMembersPage> {
 
   Widget _buildAddOrUpdateCrewMemberDialog(BuildContext context) {
     return AlertDialog(
-      title: Text(isEditing ? 'Edit Crew Member' : 'Add crew Member'),
+      title: Text(isEditing ? 'Edit Crew Member' : 'Add Crew Member'),
       content: Column(
         children: [
           TextField(
             controller: crewmemberNameController,
-            decoration: InputDecoration(labelText: 'CrewMember Name'),
+            decoration: InputDecoration(labelText: 'Crew Member Name'),
           ),
           TextField(
             controller: phoneController,
@@ -172,16 +173,15 @@ class CrewMembersPageState extends State<CrewMembersPage> {
   }
 
   Stream<QuerySnapshot<Map<String, dynamic>>> _getCrewMemberDetailsStream() async* {
-  final userSnapshot = await _getCurrentUser();
-  final organizationId = userSnapshot.data()?['organizationId'];
+    final userSnapshot = await _getCurrentUser();
+    final organizationId = userSnapshot.data()?['organizationId'];
 
-  yield* FirebaseFirestore.instance
-      .collection('organizations')
-      .doc(organizationId)
-      .collection('crewmemberdetails')
-      .snapshots();
-}
-
+    yield* FirebaseFirestore.instance
+        .collection('organizations')
+        .doc(organizationId)
+        .collection('crewmemberdetails')
+        .snapshots();
+  }
 
   Future<DocumentSnapshot<Map<String, dynamic>>> _getCurrentUser() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -211,12 +211,12 @@ class CrewMembersPageState extends State<CrewMembersPage> {
         emailController.clear();
       });
     } else {
-       // If the user's role is not 'Headowner', display a message
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('You do not have permission to add owners.'),
-            ),
-          );
+      // If the user's role is not 'Headowner', display a message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('You do not have permission to add owners.'),
+        ),
+      );
     }
   }
 
@@ -243,12 +243,12 @@ class CrewMembersPageState extends State<CrewMembersPage> {
         selectedRows.clear();
       });
     } else {
-        // If the user's role is not 'Headowner', display a message
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('You do not have permission to add owners.'),
-            ),
-          );
+      // If the user's role is not 'Headowner', display a message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('You do not have permission to add owners.'),
+        ),
+      );
     }
   }
 
@@ -286,12 +286,12 @@ class CrewMembersPageState extends State<CrewMembersPage> {
         selectedRows.remove(crewmemberDetail.id);
       });
     } else {
-        // If the user's role is not 'Headowner', display a message
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('You do not have permission to delete.'),
-            ),
-          );
+      // If the user's role is not 'Headowner', display a message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('You do not have permission to delete.'),
+        ),
+      );
     }
   }
 }

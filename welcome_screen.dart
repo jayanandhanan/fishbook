@@ -1,4 +1,4 @@
-import 'package:fishbook/selectuser_screen.dart';
+import 'package:fishbook/login_screen.dart';
 import 'package:flutter/material.dart';
 
 class WelcomeScreen extends StatefulWidget {
@@ -16,15 +16,12 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          
           Image.asset(
             'assets/img2.png',
             fit: BoxFit.cover,
             width: double.infinity,
             height: double.infinity,
           ),
-
-          
           Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -43,12 +40,44 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   height: 48.0,
                 ),
                 
-                ElevatedButton(
-                  onPressed: () {
-                    // Navigate to the SelectUserScreen when the button is pressed
-                    navigateToSelectUserScreen();
+                GestureDetector(
+                  onTap: () {
+                    // Navigate to the LoginScreen for Owner
+                    navigateToLoginScreen('Owner');
                   },
-                  child: const Text('Get Started'),
+                  child: Container(
+                    padding: const EdgeInsets.all(16.0),
+                    color: Colors.blue,
+                    child: const Text(
+                      'Owner',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(
+                  height: 12.0,
+                ),
+                GestureDetector(
+                  onTap: () {
+                    // Navigate to the LoginScreen for Crew Member
+                    navigateToLoginScreen('Crew Member');
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16.0),
+                    color: Colors.green,
+                    child: const Text(
+                      'Crew Member',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -58,11 +87,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     );
   }
 
-  void navigateToSelectUserScreen() {
-    // Navigate to the SelectUserScreen
+  
+
+  void navigateToLoginScreen(String userType) {
+    // Navigate to the LoginScreen with the specified user type
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const SelectUserScreen()),
+      MaterialPageRoute(builder: (context) => LoginScreen(userType: userType)),
     );
   }
 }
