@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:fishbook/chart_screen.dart';
 import 'package:fishbook/splash_creen.dart';
 import 'package:flutter/material.dart';
 
@@ -27,12 +28,16 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Fishbook',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: SplashScreen(),
+     initialRoute: '/',
+      routes: {
+        '/': (context) => SplashScreen(), // Define SplashScreen route
+        '/chart': (context) => ChartScreen(), // Define ChartScreen route
+      }
     );
   }
 }

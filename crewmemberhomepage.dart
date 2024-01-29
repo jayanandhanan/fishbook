@@ -1,26 +1,21 @@
-import 'package:fishbook/databasescreen.dart';
-import 'package:fishbook/newentryscreen.dart';
+import 'package:flutter/material.dart';
 import 'package:fishbook/analyticsscreen.dart';
 import 'package:fishbook/notificationsscreen.dart';
 import 'package:fishbook/statementsscreen.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fishbook/login_screen.dart';
-import 'owner_details.dart'; // Import the correct path
-import 'crewmemberspage.dart'; // Import the correct path
-import 'financepage.dart'; // Import the correct path
-import 'workmanagementpage.dart'; // Import the correct path
-import 'profilescreen.dart'; // Import the correct path
+import 'crewmemberspage.dart';
+import 'workmanagementpage.dart';
+import 'profilescreen.dart';
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key, required organizationId}) : super(key: key);
+class CrewmemberHomePage extends StatefulWidget {
+  const CrewmemberHomePage({Key? key, required organizationId}) : super(key: key);
 
   @override
-  _HomeScreenState createState() => _HomeScreenState();
+  _CrewmemberHomePageState createState() => _CrewmemberHomePageState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _CrewmemberHomePageState extends State<CrewmemberHomePage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
@@ -38,17 +33,12 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              buildFinanceContainer(),
               buildWorkContainer(),
-              buildDatabaseContainer()
             ],
           ),
           SizedBox(height: 20),
-          buildNewEntryContainer(),
-          SizedBox(height: 20),
           buildPendingContainer("Pending Works"),
           buildPendingContainer("Pending Income"),
-          buildPendingContainer("Pending Statement"),
           SizedBox(height: 20),
         ],
       ),
@@ -74,12 +64,9 @@ class _HomeScreenState extends State<HomeScreen> {
         },
         child: Container(
           margin: EdgeInsets.all(10),
-          child: SvgPicture.asset(
-            'assets/hamburger-menu.svg',
-            color: Colors.black,
-          ),
-          height: 28,
-          width: 28,
+          child: Icon(Icons.menu, color: Colors.black),
+          height: 36,
+          width: 36,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: Color(0xFFF9D8C5),
@@ -110,18 +97,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           ListTile(
-            title: Text('Owner details'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => OwnerDetailsPage(),
-                ),
-              );
-            },
-          ),
-          ListTile(
             title: Text('Crew Member details'),
             onTap: () {
               Navigator.pop(context);
@@ -145,7 +120,7 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       child: Container(
         margin: EdgeInsets.all(10),
-        child: SvgPicture.asset('assets/user-profile.svg'),
+        child: Icon(Icons.person, color: Colors.black),
         height: 36,
         width: 36,
         alignment: Alignment.center,
@@ -211,11 +186,11 @@ class _HomeScreenState extends State<HomeScreen> {
       onTap: (index) {
         switch (index) {
           case 0:
-            // Navigate to HomeScreen
+            // Navigate to CrewmemberHomePage
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => HomeScreen(organizationId: null,),
+                builder: (context) => CrewmemberHomePage(organizationId: null,),
               ),
             );
             break;
@@ -251,58 +226,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget buildFinanceContainer() {
-    return GestureDetector(
-      onTap: () {
-        // Navigate to FinancePage
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => FinancePage(),
-          ),
-        );
-      },
-      child: Container(
-        width: 80,
-        height: 60,
-        color: Colors.blue,
-        child: Center(
-          child: Text(
-            'Finance',
-            style: TextStyle(color: Colors.white),
-          ),
-        ),
-      ),
-    );
-  }
-
-
- Widget buildDatabaseContainer() {
-    return GestureDetector(
-      onTap: () {
-        // Navigate to FinancePage
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => DatabaseScreen(),
-          ),
-        );
-      },
-      child: Container(
-        width: 80,
-        height: 60,
-        color: Colors.blue,
-        child: Center(
-          child: Text(
-            'Database',
-            style: TextStyle(color: Colors.white),
-          ),
-        ),
-      ),
-    );
-  }
-
-
   Widget buildWorkContainer() {
     return GestureDetector(
       onTap: () {
@@ -315,35 +238,12 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       },
       child: Container(
-        width: 80,
-        height: 60,
+        width: 150,
+        height: 80,
         color: Colors.green,
         child: Center(
           child: Text(
             'Work',
-            style: TextStyle(color: Colors.white),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget buildNewEntryContainer() {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => NewEntryScreen(),
-          ),
-        );
-      },
-      child: Container(
-        height: 100,
-        color: Colors.orange,
-        child: Center(
-          child: Text(
-            'New Entry',
             style: TextStyle(color: Colors.white),
           ),
         ),

@@ -1,6 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fishbook/constants.dart';
 import 'package:flutter/material.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -16,10 +15,109 @@ class _SignUpScreenState extends State<SignUpScreen> {
   bool showSpinner = false;
   String name = '';
   String email = '';
+  String phone = '';
   String password = '';
   String confirmPassword = '';
+  String organizationId = '';
+  String coownerId = '';
+  String crewmemberId = '';
+  String selectedRole = 'Headowner';
+  String boatName = '';
+
   final _auth = FirebaseAuth.instance;
   final _firestore = FirebaseFirestore.instance;
+
+  // Function to generate a unique ID
+  String generateUniqueId() {
+    return _firestore.collection('organizations').doc().id;
+  }
+
+  // Function to conditionally render input fields based on the selected role
+  Widget roleSpecificFields() {
+    if (selectedRole == 'Headowner') {
+      return Column(
+        children: [
+          const SizedBox(height: 8.0),
+          TextField(
+            textAlign: TextAlign.center,
+            onChanged: (value) {
+              boatName = value;
+            },
+            decoration: InputDecoration(
+              hintText: 'Enter boat name',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.circular(10.0)),
+              ),
+            ),
+          ),
+        ],
+      );
+    } else if (selectedRole == 'Co-owner') {
+      return Column(
+        children: [
+          const SizedBox(height: 8.0),
+          TextField(
+            textAlign: TextAlign.center,
+            onChanged: (value) {
+              organizationId = value;
+            },
+            decoration: InputDecoration(
+              hintText: 'Enter organization ID shared by Headowner',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.circular(10.0)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8.0),
+          TextField(
+            textAlign: TextAlign.center,
+            onChanged: (value) {
+              coownerId = value;
+            },
+            decoration: InputDecoration(
+              hintText: 'Enter your Co-owner ID',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.circular(10.0)),
+              ),
+            ),
+          ),
+        ],
+      );
+    } else if (selectedRole == 'Crewmember') {
+      return Column(
+        children: [
+          const SizedBox(height: 8.0),
+          TextField(
+            textAlign: TextAlign.center,
+            onChanged: (value) {
+              organizationId = value;
+            },
+            decoration: InputDecoration(
+              hintText: 'Enter organization ID shared by Headowner',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.circular(10.0)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8.0),
+          TextField(
+            textAlign: TextAlign.center,
+            onChanged: (value) {
+              crewmemberId = value;
+            },
+            decoration: InputDecoration(
+              hintText: 'Enter your Crewmember ID',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.circular(10.0)),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Container(); // Return an empty container if none of the conditions are met
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,52 +129,97 @@ class _SignUpScreenState extends State<SignUpScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            const SizedBox(
-              height: 48.0,
-            ),
+            const SizedBox(height: 48.0),
             TextField(
               textAlign: TextAlign.center,
               onChanged: (value) {
                 name = value;
               },
-              decoration: kTextFieldDecoration.copyWith(hintText: 'Enter your name'),
+              decoration: InputDecoration(
+                hintText: 'Enter your name',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(10.0)),
+                ),
+              ),
             ),
-            const SizedBox(
-              height: 8.0,
-            ),
+            const SizedBox(height: 8.0),
             TextField(
               textAlign: TextAlign.center,
               keyboardType: TextInputType.emailAddress,
               onChanged: (value) {
                 email = value;
               },
-              decoration: kTextFieldDecoration.copyWith(hintText: 'Enter your email'),
+              decoration: InputDecoration(
+                hintText: 'Enter your email',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(10.0)),
+                ),
+              ),
             ),
-            const SizedBox(
-              height: 8.0,
+            const SizedBox(height: 8.0),
+            TextField(
+              textAlign: TextAlign.center,
+              keyboardType: TextInputType.phone,
+              onChanged: (value) {
+                phone = value;
+              },
+              decoration: InputDecoration(
+                hintText: 'Enter your phone number',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(10.0)),
+                ),
+              ),
             ),
+            const SizedBox(height: 8.0),
             TextField(
               textAlign: TextAlign.center,
               obscureText: true,
               onChanged: (value) {
                 password = value;
               },
-              decoration: kTextFieldDecoration.copyWith(hintText: 'Enter your password'),
+              decoration: InputDecoration(
+                hintText: 'Enter your password',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(10.0)),
+                ),
+              ),
             ),
-            const SizedBox(
-              height: 8.0,
-            ),
+            const SizedBox(height: 8.0),
             TextField(
               textAlign: TextAlign.center,
               obscureText: true,
               onChanged: (value) {
                 confirmPassword = value;
               },
-              decoration: kTextFieldDecoration.copyWith(hintText: 'Confirm your password'),
+              decoration: InputDecoration(
+                hintText: 'Confirm your password',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(10.0)),
+                ),
+              ),
             ),
-            const SizedBox(
-              height: 24.0,
+            const SizedBox(height: 8.0),
+            // DropdownButton for selecting the role
+            DropdownButton<String>(
+              value: selectedRole,
+              hint: Text('Select Role'),
+              onChanged: (value) {
+                setState(() {
+                  selectedRole = value!;
+                });
+              },
+              items: ['Headowner', 'Co-owner', 'Crewmember']
+                  .map<DropdownMenuItem<String>>((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(value),
+                );
+              }).toList(),
             ),
+            const SizedBox(height: 8.0),
+            // Call the roleSpecificFields method to conditionally render input fields
+            roleSpecificFields(),
+            const SizedBox(height: 24.0),
             ElevatedButton(
               child: const Text('Create Account'),
               onPressed: () async {
@@ -84,56 +227,76 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   showSpinner = true;
                 });
 
-                // Validate password confirmation
-                if (password != confirmPassword) {
-                  // Passwords don't match, show an error message
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Passwords do not match!'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                  setState(() {
-                    showSpinner = false;
-                  });
-                  return;
-                }
-
-                // Validate password length
-                if (password.length < 6) {
-                  // Password is too short, show an error message
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Password should be at least 6 characters long!'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                  setState(() {
-                    showSpinner = false;
-                  });
-                  return;
-                }
-
-                // Create new Account
                 try {
-                  // Create the user
-                  UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
-                    email: email,
-                    password: password,
-                  );
+                  UserCredential? userCredential;
 
-                  // Save additional user details in Firestore
-                  await _firestore.collection('users').doc(userCredential.user!.uid).set({
-                    'name': name,
-                    'email': email,
-                  });
+                  if (selectedRole == 'Headowner') {
+                    userCredential = await _auth.createUserWithEmailAndPassword(
+                      email: email,
+                      password: password,
+                    );
+
+                    organizationId = generateUniqueId();
+                    coownerId = generateUniqueId();
+                    crewmemberId = generateUniqueId();
+
+                    await _firestore.collection('organizations').doc(organizationId).set({
+                      'boatname': boatName,
+                      'coownerId': coownerId,
+                      'crewmemberId': crewmemberId,
+                      'organizationId': organizationId,
+                    });
+
+                    await _firestore.collection('organizations').doc(organizationId).collection('headowners').doc(userCredential!.user!.uid).set({
+                      'name': name,
+                      'email': email,
+                      'phone': phone,
+                    });
+
+                  
+
+
+                    await _firestore.collection('users').doc(userCredential.user!.uid).set({
+                      'name': name,
+                      'email': email,
+                      'phone': phone,
+                      'boatname': boatName,
+                      'organizationId': organizationId,
+                      'role': selectedRole,
+                    });
+
+                  } else if (selectedRole == 'Co-owner' || selectedRole == 'Crewmember') {
+                    userCredential = await _auth.createUserWithEmailAndPassword(
+                      email: email,
+                      password: password,
+                    );
+
+                    // Fetch boat name from Headowner's organization
+                    DocumentSnapshot orgSnapshot = await _firestore.collection('organizations').doc(organizationId).get();
+                    String headownerBoatName = orgSnapshot.get('boatname');
+
+                    await _firestore.collection('organizations').doc(organizationId).collection(selectedRole.toLowerCase() + 's').doc(userCredential!.user!.uid).set({
+                      'name': name,
+                      'email': email,
+                      'phone': phone,
+                    });
+
+                    await _firestore.collection('users').doc(userCredential.user!.uid).set({
+                      'name': name,
+                      'email': email,
+                      'phone': phone,
+                      'boatname': headownerBoatName,
+                      'organizationId': organizationId,
+                      'role': selectedRole,
+                    });
+                  }
 
                   setState(() {
                     showSpinner = false;
                   });
 
-                  Navigator.pop(context); // Navigate back to LoginScreen
-                  print('Successfully Created');
+                  Navigator.pop(context);
+
                 } catch (e) {
                   print(e);
 
