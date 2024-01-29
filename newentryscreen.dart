@@ -1,5 +1,6 @@
 // ignore_for_file: unused_local_variable
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:math';
@@ -10,6 +11,7 @@ class NewEntryScreen extends StatefulWidget {
 }
 
 class _NewEntryScreenState extends State<NewEntryScreen> {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   TextEditingController returnDateController = TextEditingController();
   TextEditingController expenseNameController = TextEditingController();
   TextEditingController expenseAmountController = TextEditingController();
@@ -34,8 +36,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   List<Map<String, dynamic>> expensesList = [];
   List<Map<String, dynamic>> revenuesList = [];
 
-  CollectionReference newEntryCollection =
-      FirebaseFirestore.instance.collection('newentry');
+ 
 
   @override
   Widget build(BuildContext context) {
@@ -431,137 +432,8 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     }
   }
 
-List<DataRow> _buildCrewMembersRows() {
-  return crewMembers
-      .where((crewMember) => selectedCrewMemberIds.contains(crewMember.id))
-      .map((crewMember) {
-    Map<String, dynamic>? crewMemberData = crewMember.data() as Map<String, dynamic>?;
 
-    String name = crewMemberData?['name']?.toString() ?? '';
-    String phone = crewMemberData?['phone']?.toString() ?? '';
-    String email = crewMemberData?['email']?.toString() ?? '';
-    double amount = crewAmounts[crewMember.id] ?? 0;
 
-    return DataRow(
-      cells: [
-        DataCell(
-          TextFormField(
-            initialValue: name,
-            onChanged: (value) {
-              setState(() {
-                crewMemberData?['name'] = value;
-              });
-            },
-            decoration: InputDecoration(labelText: 'Crew Member Name'),
-          ),
-        ),
-        DataCell(
-          TextFormField(
-            initialValue: phone,
-            onChanged: (value) {
-              setState(() {
-                crewMemberData?['phone'] = value;
-              });
-            },
-            decoration: InputDecoration(labelText: 'Crew Member Phone'),
-          ),
-        ),
-        DataCell(
-          TextFormField(
-            initialValue: email,
-            onChanged: (value) {
-              setState(() {
-                crewMemberData?['email'] = value;
-              });
-            },
-            decoration: InputDecoration(labelText: 'Crew Member Email'),
-          ),
-        ),
-        DataCell(
-          TextFormField(
-            initialValue: '0',  // Set initial value to '0'
-            keyboardType: TextInputType.number,
-            onChanged: (value) {
-              setState(() {
-                crewAmounts[crewMember.id] = double.tryParse(value) ?? 0;
-              });
-            },
-            decoration: InputDecoration(labelText: 'Enter Amount'),
-          ),
-        ),
-       
-      ],
-    );
-  }).toList();
-}
-
-List<DataRow> _buildOwnersRows() {
-  return owners
-      .where((owner) => selectedOwnerIds.contains(owner.id))
-      .map((owner) {
-    Map<String, dynamic>? ownerData = owner.data() as Map<String, dynamic>?;
-
-    double share = ownerShares[owner.id] ?? 0;
-
-    return DataRow(
-      cells: [
-        DataCell(
-          TextFormField(
-            initialValue: ownerData?['name']?.toString() ?? '',
-            onChanged: (value) {
-              setState(() {
-                ownerData?['name'] = value;
-              });
-            },
-            decoration: InputDecoration(labelText: 'Owner Name'),
-          ),
-        ),
-        DataCell(
-          TextFormField(
-            initialValue: ownerData?['phone']?.toString() ?? '',
-            onChanged: (value) {
-              setState(() {
-                ownerData?['phone'] = value;
-              });
-            },
-            decoration: InputDecoration(labelText: 'Owner Phone'),
-          ),
-        ),
-        DataCell(
-          TextFormField(
-            initialValue: ownerData?['email']?.toString() ?? '',
-            onChanged: (value) {
-              setState(() {
-                ownerData?['email'] = value;
-              });
-            },
-            decoration: InputDecoration(labelText: 'Owner Email'),
-          ),
-        ),
-        DataCell(
-          TextFormField(
-            initialValue: '0',  // Set initial value to '0'
-            keyboardType: TextInputType.number,
-            onChanged: (value) {
-              setState(() {
-                ownerInvestments[owner.id] = double.tryParse(value) ?? 0;
-                _calculateShareForOwners();
-              });
-            },
-            decoration: InputDecoration(labelText: 'Enter Invest'),
-          ),
-        ),
-        DataCell(
-          TextFormField(
-            enabled: false,
-            initialValue: '0.0',  // Set initial value to '0.0'
-          ),
-        ),
-       
-      ],
-    );
-  }).toList();
-}
 
 
 void _calculateShareForOwners() {
@@ -592,11 +464,48 @@ void _calculateShareForOwners() {
     return total;
   }
 
+  List<DataRow> _buildCrewMembersRows() {
+    return crewMembers
+        .where((crewMember) => selectedCrewMemberIds.contains(crewMember.id))
+        .map((crewMember) {
+      return DataRow(
+        cells: [
+          DataCell(Text(crewMember['name']?.toString() ?? '')),
+          DataCell(Text(crewMember['phone']?.toString() ?? '')),
+          DataCell(Text(crewMember['email']?.toString() ?? '')),
+          DataCell(
+            TextFormField(
+              initialValue: '0.0',
+              keyboardType: TextInputType.number,
+              onChanged: (value) {
+                setState(() {
+                  crewAmounts[crewMember.id] = double.tryParse(value) ?? 0;
+                });
+              },
+              decoration: InputDecoration(labelText: 'Enter Amount'),
+            ),
+          ),
+        
+        ],
+      );
+    }).toList();
+  }
 
 
+Future<void> _selectCrewMembers(BuildContext context) async {
+  try {
+    // Step 1: Retrieve the current user
+    User? user = _auth.currentUser;
 
-  Future<void> _selectCrewMembers(BuildContext context) async {
-    await showDialog(
+    if (user != null) {
+      // Step 2: Retrieve user's organization ID from Firestore
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+
+      if (userDoc.exists) {
+        String organizationId = userDoc['organizationId']; // Assuming you have an 'organizationId' field for the user
+
+        // Proceed with your dialog to select crew members using the obtained organizationId
+      await showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
@@ -607,7 +516,11 @@ void _calculateShareForOwners() {
                 height: 300,
                 width: double.maxFinite,
                 child: FutureBuilder(
-                  future: FirebaseFirestore.instance.collection('crewmembers').get(),
+                 future: FirebaseFirestore.instance
+                          .collection('organizations')
+                          .doc(organizationId)
+                          .collection('crewmemberdetails')
+                          .get(),
                   builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return CircularProgressIndicator();
@@ -661,16 +574,77 @@ void _calculateShareForOwners() {
                 setState(() {});
               },
               child: Text('Done'),
-            ),
-          ],
+),
+              ],
+            );
+          },
         );
-      },
-    );
+      } else {
+        print('User document does not exist.');
+      }
+    } else {
+      print('User is not logged in.');
+    }
+  } catch (e) {
+    print('Error selecting crew members: $e');
   }
+}
 
+List<DataRow> _buildOwnersRows() {
+  return owners
+      .where((owner) => selectedOwnerIds.contains(owner.id))
+      .map((owner) {
+    Map<String, dynamic>? ownerData = owner.data() as Map<String, dynamic>?;
 
- Future<void> _selectOwners(BuildContext context) async {
-  await showDialog(
+    double share = ownerShares[owner.id] ?? 0;
+
+      return DataRow(
+        cells: [
+          DataCell(Text(ownerData?['name']?.toString() ?? '')),
+          DataCell(Text(ownerData?['phone']?.toString() ?? '')),
+          DataCell(Text(ownerData?['email']?.toString() ?? '')),
+
+        
+        DataCell(
+          TextFormField(
+            initialValue: '0',  // Set initial value to '0'
+            keyboardType: TextInputType.number,
+            onChanged: (value) {
+              setState(() {
+                ownerInvestments[owner.id] = double.tryParse(value) ?? 0;
+                _calculateShareForOwners();
+             
+              });
+            },
+            decoration: InputDecoration(labelText: 'Enter Invest'),
+          ),
+        ),
+        DataCell(
+          TextFormField(
+            enabled: false,
+            initialValue: '0.0',  // Set initial value to '0.0'
+          ),
+        ),
+       
+      ],
+    );
+  }).toList();
+}
+
+Future<void> _selectOwners(BuildContext context) async {
+  try {
+    // Step 1: Retrieve the current user
+    User? user = _auth.currentUser;
+
+    if (user != null) {
+      // Step 2: Retrieve user's organization ID from Firestore
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+
+      if (userDoc.exists) {
+        String organizationId = userDoc['organizationId']; // Assuming you have an 'organizationId' field for the user
+
+        // Proceed with your dialog to select owners using the obtained organizationId
+     await showDialog(
     context: context,
     builder: (BuildContext context) {
       return AlertDialog(
@@ -681,7 +655,11 @@ void _calculateShareForOwners() {
               height: 300,
               width: double.maxFinite,
               child: FutureBuilder(
-                future: FirebaseFirestore.instance.collection('owners').get(),
+                 future: FirebaseFirestore.instance
+                          .collection('organizations')
+                          .doc(organizationId)
+                          .collection('ownerdetails')
+                          .get(),
                 builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return CircularProgressIndicator();
@@ -736,88 +714,151 @@ void _calculateShareForOwners() {
             },
             child: Text('Done'),
           ),
-        ],
-      );
-    },
-  );
-}
-
- Future<void> _addRevenueSubcollection(DocumentReference newEntryDocRef) async {
-    CollectionReference revenueCollection = newEntryDocRef.collection('revenue');
-    for (var revenueEntry in revenuesList) {
-      await revenueCollection.add(revenueEntry);
-    }
-  }
-
-  Future<void> _addSalaryToCrewMembersSubcollection(DocumentReference newEntryDocRef) async {
-    CollectionReference salaryToCrewMembersCollection = newEntryDocRef.collection('salarytocrewmembers');
-    for (var crewMemberId in selectedCrewMemberIds) {
-      var crewMember = crewMembers.firstWhere((element) => element.id == crewMemberId);
-      await salaryToCrewMembersCollection.add({
-        'name': crewMember['name'],
-        'phone': crewMember['phone'],
-        'email' : crewMember['email'],
-        'amount': crewAmounts[crewMemberId],
-      });
-    }
-  }
-
-  Future<void> _addExpenseSubcollection(DocumentReference newEntryDocRef) async {
-    CollectionReference expenseCollection = newEntryDocRef.collection('expense');
-    for (var expenseEntry in expensesList) {
-      await expenseCollection.add(expenseEntry);
-    }
-  }
-
-  Future<void> _addOwnerShareSubcollection(DocumentReference newEntryDocRef) async {
-    CollectionReference ownerShareCollection = newEntryDocRef.collection('ownershare');
-    for (var ownerId in selectedOwnerIds) {
-      var owner = owners.firstWhere((element) => element.id == ownerId);
-      await ownerShareCollection.add({
-        'name': owner['name'],
-        'phone': owner['phone'],
-        'email': owner['email'],
-        'invest': ownerInvestments[ownerId],
-        'share': ownerShares[ownerId],
-      });
-    }
-  }
-
-  Future<void> _addNewEntry() async {
-    try {
-      if (selectedSailingDate != null && selectedReturnDate != null) {
-        DocumentReference newEntryDocRef = await newEntryCollection.add({
-          'monthconsidered': selectedMonth,
-          'sailingdate': selectedSailingDate,
-          'returndate': selectedReturnDate,
-          'totalprofit': _calculateTotalProfit(),
-        });
-
-        await _addRevenueSubcollection(newEntryDocRef);
-        await _addSalaryToCrewMembersSubcollection(newEntryDocRef);
-        await _addExpenseSubcollection(newEntryDocRef);
-        await _addOwnerShareSubcollection(newEntryDocRef);
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Added to New Entry'),
-          ),
+              ],
+            );
+          },
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Please fill in all date fields.'),
-          ),
-        );
+        print('User document does not exist.');
       }
-    } catch (e) {
-      print('Error adding to New Entry: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error adding to New Entry. Please try again.'),
-        ),
-      );
+    } else {
+      print('User is not logged in.');
     }
+  } catch (e) {
+    print('Error selecting owners: $e');
   }
-
 }
+
+
+
+Future<void> _addNewEntry() async {
+  try {
+    // Step 1: Retrieve the current user
+    User? user = _auth.currentUser;
+
+    if (user != null) {
+      // Step 2: Retrieve user's role and organization ID from Firestore
+      DocumentSnapshot userDoc =
+          await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+
+      if (userDoc.exists) {
+        String userRole = userDoc['role']; // Assuming you have a 'role' field for the user
+        String organizationId =
+            userDoc['organizationId']; // Assuming you have an 'organizationId' field for the user
+
+        // Step 3: Check if the user's role is 'Headowner'
+        if (userRole == 'Headowner') {
+          // Step 4: Allow Headowner to create newentrycollection for their organization with four subcollections
+          CollectionReference organizationCollection =
+              FirebaseFirestore.instance.collection('organizations');
+          DocumentReference organizationDocRef = organizationCollection.doc(organizationId);
+
+          // Check if the organization already exists
+          bool organizationExists =
+              await organizationDocRef.get().then((doc) => doc.exists);
+
+          if (organizationExists) {
+            // If the organization exists, add new entry directly
+            DocumentReference newEntryDocRef = organizationDocRef.collection('newentry').doc();
+
+            // Add fields for the new entry
+            await newEntryDocRef.set({
+              'monthconsidered': selectedMonth,
+              'sailingdate': selectedSailingDate,
+              'returndate': selectedReturnDate,
+              'totalprofit': _calculateTotalProfit(),
+            });
+
+            // Add subcollections
+            await _addRevenueSubcollection(newEntryDocRef);
+            await _addExpenseSubcollection(newEntryDocRef);
+            await _addSalaryToCrewMembersSubcollection(newEntryDocRef);
+            await _addOwnerShareSubcollection(newEntryDocRef);
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Added to New Entry'),
+              ),
+            );
+           // Navigate back to the home screen
+            Navigator.pop(context);
+
+          } else {
+            print('Organization does not exist.');
+          }
+        } else {
+          // If the user's role is not 'Headowner', display a message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('You do not have permission to add new entries.'),
+            ),
+          );
+        }
+      } else {
+        print('User document does not exist.');
+      }
+    } else {
+      print('User is not logged in.');
+    }
+  } catch (e) {
+    print('Error adding to New Entry: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error adding to New Entry. Please try again.'),
+      ),
+    );
+  }
+}
+
+Future<void> _addRevenueSubcollection(DocumentReference newEntryDocRef) async {
+  CollectionReference revenueCollection = newEntryDocRef.collection('revenue');
+  for (var revenueEntry in revenuesList) {
+    await revenueCollection.add(revenueEntry);
+  }
+}
+
+Future<void> _addSalaryToCrewMembersSubcollection(
+    DocumentReference newEntryDocRef) async {
+  CollectionReference salaryToCrewMembersCollection =
+      newEntryDocRef.collection('salarytocrewmembers');
+
+  for (var crewMemberId in selectedCrewMemberIds) {
+    var crewMember = crewMembers.firstWhere((element) => element.id == crewMemberId);
+
+    // Use the same ID as the 'crewmembers' collection
+    DocumentReference salaryDocRef = salaryToCrewMembersCollection.doc(crewMemberId);
+
+    await salaryDocRef.set({
+      'name': crewMember['name'],
+      'phone': crewMember['phone'],
+      'email': crewMember['email'],
+      'amount': crewAmounts[crewMemberId],
+    });
+  }
+}
+
+Future<void> _addExpenseSubcollection(DocumentReference newEntryDocRef) async {
+  CollectionReference expenseCollection = newEntryDocRef.collection('expense');
+  for (var expenseEntry in expensesList) {
+    await expenseCollection.add(expenseEntry);
+  }
+}
+
+Future<void> _addOwnerShareSubcollection(DocumentReference newEntryDocRef) async {
+  CollectionReference ownerShareCollection = newEntryDocRef.collection('ownershare');
+
+  for (var ownerId in selectedOwnerIds) {
+    var owner = owners.firstWhere((element) => element.id == ownerId);
+
+    // Use the same ID as the 'owners' collection
+    DocumentReference ownerShareDocRef = ownerShareCollection.doc(ownerId);
+
+    await ownerShareDocRef.set({
+      'name': owner['name'],
+      'phone': owner['phone'],
+      'email': owner['email'],
+      'invest': ownerInvestments[ownerId],
+      'share': ownerShares[ownerId],
+    });
+  }
+}}
