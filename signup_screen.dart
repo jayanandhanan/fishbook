@@ -253,8 +253,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       'phone': phone,
                     });
 
-                  
-
+                  await _firestore.collection('organizations').doc(organizationId).collection('ownerdetails').doc(userCredential!.user!.uid).set({
+'name': name,
+                      'email': email,
+                      'phone': phone,
+                    });
 
                     await _firestore.collection('users').doc(userCredential.user!.uid).set({
                       'name': name,
@@ -275,13 +278,25 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     DocumentSnapshot orgSnapshot = await _firestore.collection('organizations').doc(organizationId).get();
                     String headownerBoatName = orgSnapshot.get('boatname');
 
-                    await _firestore.collection('organizations').doc(organizationId).collection(selectedRole.toLowerCase() + 's').doc(userCredential!.user!.uid).set({
+                  
+
+                    String collectionName = selectedRole == 'Co-owner' ? 'co-owners' : 'crewmembers';
+                    String subcollectionName = selectedRole == 'Co-owner' ? 'ownerdetails' : 'crewmemberdetails';
+                    
+
+                    await _firestore.collection('organizations').doc(organizationId).collection(collectionName).doc(userCredential!.user!.uid).set({
                       'name': name,
                       'email': email,
                       'phone': phone,
                     });
 
-                    await _firestore.collection('users').doc(userCredential.user!.uid).set({
+                    await _firestore.collection('organizations').doc(organizationId).collection(subcollectionName).doc(userCredential!.user!.uid).set({
+                      'name': name,
+                      'email': email,
+                      'phone': phone,
+                    });
+
+                    await _firestore.collection('users').doc(userCredential!.user!.uid).set({
                       'name': name,
                       'email': email,
                       'phone': phone,

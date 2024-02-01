@@ -1,5 +1,6 @@
 // ignore_for_file: unused_local_variable
 
+import 'package:fishbook/analyticsscreen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -22,7 +23,7 @@ class FinancePage extends StatelessWidget {
             _buildFinanceTable(),
             ElevatedButton(
               onPressed: () => _addToDatabase(context),
-              child: Text('Add to Database'),
+              child: Text('Monthly Analytics and Chart'),
             ),
           ],
         ),
@@ -30,7 +31,7 @@ class FinancePage extends StatelessWidget {
     );
   }
 
- Future<void> _addToDatabase(BuildContext context) async {
+Future<void> _addToDatabase(BuildContext context) async {
   try {
     final String orgId = await _getCurrentUserOrganizationId();
     final CollectionReference financeCollection = FirebaseFirestore.instance
@@ -62,12 +63,20 @@ class FinancePage extends StatelessWidget {
       });
     }
 
+    // Show a SnackBar to indicate successful addition of finance data
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Finance data added to database.'),
       ),
     );
+
+    // Navigate to the AnalyticsPage after adding data
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => AnalyticsPage()),
+    );
   } catch (error) {
+    // Show a SnackBar if there's an error
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Error: $error'),

@@ -1,6 +1,7 @@
 import 'package:fishbook/databasescreen.dart';
+import 'package:fishbook/idscreen.dart';
 import 'package:fishbook/newentryscreen.dart';
-import 'package:fishbook/analyticsscreen.dart';
+
 import 'package:fishbook/notificationsscreen.dart';
 import 'package:fishbook/statementsscreen.dart';
 import 'package:flutter/material.dart';
@@ -41,10 +42,13 @@ class _HomeScreenState extends State<HomeScreen> {
               buildFinanceContainer(),
               buildWorkContainer(),
               buildDatabaseContainer()
+              
             ],
           ),
           SizedBox(height: 20),
           buildNewEntryContainer(),
+          SizedBox(height: 20),
+          buildOrganizationIdContainer(),
           SizedBox(height: 20),
           buildPendingContainer("Pending Works"),
           buildPendingContainer("Pending Income"),
@@ -202,11 +206,7 @@ class _HomeScreenState extends State<HomeScreen> {
           label: "Notifications",
           backgroundColor: Color(0xFFF9D8C5),
         ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.bar_chart),
-          label: "Analytics",
-          backgroundColor: Color(0xFFF9D8C5),
-        ),
+       
       ],
       onTap: (index) {
         switch (index) {
@@ -237,15 +237,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             );
             break;
-          case 3:
-            // Navigate to AnalyticsScreen
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => AnalyticsPage(),
-              ),
-            );
-            break;
+         
         }
       },
     );
@@ -302,7 +294,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-
   Widget buildWorkContainer() {
     return GestureDetector(
       onTap: () {
@@ -350,6 +341,31 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+  Widget buildOrganizationIdContainer() {
+    return GestureDetector(
+      onTap: () {
+        // Navigate to IDCScreen
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => IDScreen(),
+          ),
+        );
+      },
+      child: Container(
+        width: 80,
+        height: 60,
+        color: Colors.yellow, // Changed color for identification
+        child: Center(
+          child: Text(
+            'Organization IDs',
+            style: TextStyle(color: Colors.black),
+          ),
+        ),
+      ),
+    );
+  }
+
 
   Widget buildPendingContainer(String title) {
     return Container(

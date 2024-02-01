@@ -67,7 +67,7 @@ class _OwnerDetailsPageState extends State<OwnerDetailsPage> {
         return DataTable(
           showCheckboxColumn: false,
           columns: _buildTableColumns(),
-          columnSpacing: 16.0, // Adjust the column spacing here
+          columnSpacing: 16.0,
           rows: _buildTableRows(ownerDetails),
         );
       },
@@ -79,11 +79,12 @@ class _OwnerDetailsPageState extends State<OwnerDetailsPage> {
       DataColumn(label: Text('Name')),
       DataColumn(label: Text('Phone')),
       DataColumn(label: Text('Email')),
+      DataColumn(label: Text('Type')),
       DataColumn(label: Text('Actions')),
     ];
   }
 
-  List<DataRow> _buildTableRows(List<DocumentSnapshot> ownerDetails) {
+   List<DataRow> _buildTableRows(List<DocumentSnapshot> ownerDetails) {
     return ownerDetails.map((ownerDetail) {
       return DataRow(
         selected: selectedRows.contains(ownerDetail.id),
@@ -100,35 +101,110 @@ class _OwnerDetailsPageState extends State<OwnerDetailsPage> {
         },
         cells: [
           DataCell(
-            Text(ownerDetail['name'].toString()), // Display 'name' field
+            Text(ownerDetail['name'].toString()),
           ),
           DataCell(
-            Text(ownerDetail['phone'].toString()), // Display 'phone' field
+            Text(ownerDetail['phone'].toString()),
           ),
           DataCell(
-            Text(ownerDetail['email'].toString()), // Display 'email' field
+            Text(ownerDetail['email'].toString()),
+          ),
+          DataCell(
+            FutureBuilder<Widget>(
+              future: _buildAddedByColumn(ownerDetail),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return CircularProgressIndicator(); // or any other loading indicator
+                } else {
+                  if (snapshot.hasError) {
+                    return Text('Error: ${snapshot.error}');
+                  } else {
+                    return snapshot.data!;
+                  }
+                }
+              },
+            ),
           ),
           DataCell(
             Row(
               children: [
                 IconButton(
                   icon: Icon(Icons.edit),
-                  onPressed: () {
-                    editOwnerDetail(ownerDetail);
+                  onPressed: () async {
+                    if (await _isEditingAllowed(ownerDetail.id)) {
+                      editOwnerDetail(ownerDetail);
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('You cannot edit this owner.'),
+                        ),
+                      );
+                    }
                   },
                 ),
-                IconButton(
-                  icon: Icon(Icons.delete),
-                  onPressed: () {
-                    deleteOwnerDetail(ownerDetail);
-                  },
-                ),
+                
+                  IconButton(
+                    icon: Icon(Icons.delete),
+                    onPressed: () async {
+                      if (await _isEditingAllowed(ownerDetail.id)) {
+                        deleteOwnerDetail(ownerDetail);
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('You cannot delete this owner.'),
+                          ),
+                        );
+                      }
+                    },
+                  ),
               ],
             ),
           ),
         ],
       );
     }).toList();
+  }
+  Future<Widget> _buildAddedByColumn(DocumentSnapshot ownerDetail) async {
+    if (await _isDocumentIdPresent(ownerDetail.id)) {
+      return Text('Signed in user');
+    } else {
+      return Text('Written');
+    }
+  }
+
+  Future<bool> _isDocumentIdPresent(String documentId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final organizationSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      final organizationId = organizationSnapshot.data()?['organizationId'];
+
+      final headOwnersRef = FirebaseFirestore.instance
+          .collection('organizations')
+          .doc(organizationId)
+          .collection('headowners');
+      final coOwnersRef = FirebaseFirestore.instance
+          .collection('organizations')
+          .doc(organizationId)
+          .collection('co-owners');
+
+      final headOwnersQuery = await headOwnersRef.get();
+      final coOwnersQuery = await coOwnersRef.get();
+
+      final List<String> headOwnerIds =
+          headOwnersQuery.docs.map((doc) => doc.id).toList();
+      final List<String> coOwnerIds =
+          coOwnersQuery.docs.map((doc) => doc.id).toList();
+
+      return headOwnerIds.contains(documentId) || coOwnerIds.contains(documentId);
+    }
+    return false;
+  }
+
+  Future<bool> _isEditingAllowed(String documentId) async {
+    return !(await _isDocumentIdPresent(documentId));
   }
 
   Widget _buildAddOrUpdateOwnerDialog(BuildContext context) {
@@ -212,7 +288,6 @@ class _OwnerDetailsPageState extends State<OwnerDetailsPage> {
         emailController.clear();
       });
     } else {
-      // If the user's role is not 'Headowner', display a message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('You do not have permission to add owners.'),
@@ -245,7 +320,6 @@ class _OwnerDetailsPageState extends State<OwnerDetailsPage> {
         selectedRows.clear();
       });
     } else {
-      // If the user's role is not 'Headowner', display a message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('You do not have permission to add owners.'),
@@ -264,7 +338,6 @@ class _OwnerDetailsPageState extends State<OwnerDetailsPage> {
       selectedRows.clear();
       selectedRows.add(ownerDetail.id);
 
-      // Open the edit dialog directly upon clicking the "Edit" action
       showDialog(
         context: context,
         builder: (BuildContext context) {
@@ -289,7 +362,6 @@ class _OwnerDetailsPageState extends State<OwnerDetailsPage> {
         selectedRows.remove(ownerDetail.id);
       });
     } else {
-      // If the user's role is not 'Headowner', display a message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('You do not have permission to delete.'),

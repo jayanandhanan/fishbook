@@ -26,14 +26,14 @@ class ChartData {
   }
 }
 
-class ChartScreen extends StatefulWidget {
-  const ChartScreen({Key? key}) : super(key: key);
+class Chart2Screen extends StatefulWidget {
+  const Chart2Screen({Key? key}) : super(key: key);
 
   @override
-  _ChartScreenState createState() => _ChartScreenState();
+  _Chart2ScreenState createState() => _Chart2ScreenState();
 }
 
-class _ChartScreenState extends State<ChartScreen> {
+class _Chart2ScreenState extends State<Chart2Screen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -42,24 +42,23 @@ class _ChartScreenState extends State<ChartScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchAnalyticsData();
+    _fetchFilteredAnalyticsData();
   }
 
-  Future<void> _fetchAnalyticsData() async {
+  Future<void> _fetchFilteredAnalyticsData() async {
     try {
       final String orgId = await _getCurrentUserOrganizationId();
-      final QuerySnapshot analyticsSnapshot = await _firestore
+      final QuerySnapshot filteredAnalyticsSnapshot = await _firestore
           .collection('organizations')
           .doc(orgId)
-          .collection('analytics')
+          .collection('filtered_analytics')
           .get();
 
       setState(() {
-        chartData = analyticsSnapshot.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
-        chartData.sort((a, b) => a['month-year'].compareTo(b['month-year']));
+        chartData = filteredAnalyticsSnapshot.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
       });
     } catch (error) {
-      print('Error fetching analytics data: $error');
+      print('Error fetching filtered analytics data: $error');
     }
   }
 

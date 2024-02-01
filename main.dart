@@ -1,5 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:fishbook/analyticsscreen.dart';
+import 'package:fishbook/chart2_screen.dart';
 import 'package:fishbook/chart_screen.dart';
+import 'package:fishbook/filteranalyticsscreen.dart';
 import 'package:fishbook/splash_creen.dart';
 import 'package:flutter/material.dart';
 
@@ -35,8 +38,11 @@ class MyApp extends StatelessWidget {
       ),
      initialRoute: '/',
       routes: {
-        '/': (context) => SplashScreen(), // Define SplashScreen route
-        '/chart': (context) => ChartScreen(), // Define ChartScreen route
+        '/': (context) => SplashScreen(), 
+        '/chart': (context) => ChartScreen(), 
+        '/analytics': (context) => AnalyticsPage(),
+        '/filter': (context) => FilterAnalyticsPage(), 
+        '/chart2': (context) => Chart2Screen(),
       }
     );
   }

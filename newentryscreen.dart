@@ -1,5 +1,4 @@
-// ignore_for_file: unused_local_variable
-
+// ignore_for_file: unused_local_variable, unnecessary_null_comparison
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -12,7 +11,6 @@ class NewEntryScreen extends StatefulWidget {
 
 class _NewEntryScreenState extends State<NewEntryScreen> {
  
-
   final FirebaseAuth _auth = FirebaseAuth.instance;
   TextEditingController returnDateController = TextEditingController();
   TextEditingController expenseNameController = TextEditingController();
@@ -21,7 +19,6 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   TextEditingController crewNameController = TextEditingController();
   TextEditingController crewPhoneController = TextEditingController();
   TextEditingController crewAmountController = TextEditingController();
-
 
   String selectedMonth = 'Jan';
   DateTime? selectedSailingDate;
@@ -32,18 +29,24 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   Set<String> selectedCrewMemberIds = {};
   Set<String> selectedOwnerIds = {};
   Map<String, double> crewAmounts = {};
+  Map<String, double> ownerProfitShares = {};
+  Map<String, double> ownerRemainingAmountShares = {};
   Map<String, double> ownerInvestments = {};
   Map<String, double> ownerShares = {};
   double totalInvest = 0.0;
-
+  double remainingAmount = 0.0; 
+  double totalCrewAmount = 0.0;
+  
   List<Map<String, dynamic>> expensesList = [];
   List<Map<String, dynamic>> revenuesList = [];
+
+  bool updatingShareForOwners = false;
 
 // Define a Map to hold amount controllers for each crew member
 Map<String, TextEditingController> crewAmountControllers = {};
 Map<String, TextEditingController> ownerInvestmentControllers = {};
 
- @override
+@override
 void dispose() {
   super.dispose();
  
@@ -51,8 +54,8 @@ void dispose() {
   ownerInvestmentControllers.values.forEach((controller) => controller.dispose());
 }
 
-  @override
-  Widget build(BuildContext context) {
+@override
+ Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Add New Entry'),
@@ -164,7 +167,7 @@ void dispose() {
                 child: Text('Add Revenue'),
               ),
               
-
+ SizedBox(height: 20),
               // DataTable to display entered expenses and revenues
             SingleChildScrollView(
   scrollDirection: Axis.horizontal,
@@ -179,13 +182,13 @@ void dispose() {
     rows: _buildDataRows(),
   ),
 ),
-
               SizedBox(height: 20),
-
               // Display Total Profit
               Text('Total Profit: ${_calculateTotalProfit().toStringAsFixed(2)}'),
               SizedBox(height: 20),
-
+                  // Display Remaining Amount
+              Text('Remaining Amount After Crewmember Salary: ${remainingAmount.toStringAsFixed(2)}'),
+              SizedBox(height: 20),
               // Select Crew Members
               ElevatedButton(
                 onPressed: () async {
@@ -193,22 +196,20 @@ void dispose() {
                 },
                 child: Text('Select/Unselect Crew Members'),
               ),
-
               if (selectedCrewMemberIds.isNotEmpty)
               SingleChildScrollView(
   scrollDirection: Axis.horizontal,
   child: DataTable(
     columnSpacing: 16.0, // Adjust the spacing between columns as needed
     columns: [
-      DataColumn(label: Text('Crew Member Name')),
-      DataColumn(label: Text('Crew Member Phone')),
-      DataColumn(label: Text('Crew Member Email')),
+      DataColumn(label: Text('Name')),
+      DataColumn(label: Text('Phone')),
+      DataColumn(label: Text('Email')),
       DataColumn(label: Text('Amount')),
     ],
     rows: _buildCrewMembersRows(),
   ),
 ),
-
               SizedBox(height: 20),
 
               // Select Owners
@@ -225,28 +226,25 @@ void dispose() {
   child: DataTable(
     columnSpacing: 16.0, // Adjust the spacing between columns as needed
     columns: [
-      DataColumn(label: Text('Owner Name')),
-      DataColumn(label: Text('Owner Phone')),
-      DataColumn(label: Text('Owner Email')),
+      DataColumn(label: Text('Name')),
+      DataColumn(label: Text('Phone')),
+      DataColumn(label: Text('Email')),
       DataColumn(label: Text('Invest')),
       DataColumn(label: Text('Share')),
+      DataColumn(label: Text('Profit Amount Share')),
+      DataColumn(label: Text('Remaining Amount Share')),
     ],
     rows: _buildOwnersRows(),
   ),
 ),
-
-             
-              
-
               SizedBox(height: 20),
 
               // Calculate Share for Owners
               ElevatedButton(
                 onPressed: () {
-                  _calculateShareForOwners();
                   _addNewEntry();
                 },
-                child: Text('Calculate Share & Add to New Entry'),
+                child: Text('Add to Database'),
               ),
             ],
           ),
@@ -254,7 +252,6 @@ void dispose() {
       ),
     );
   }
-
 
   List<DataRow> _buildDataRows() {
     List<DataRow> rows = [];
@@ -266,7 +263,6 @@ void dispose() {
         DataCell(Text(revenue['amount']?.toString() ?? '')),
         DataCell(Text(expense['expensename'] ?? '')),
         DataCell(Text(expense['expenseamount']?.toString() ?? '')),
-        
         DataCell(
           Row(
             children: [
@@ -292,7 +288,6 @@ void dispose() {
     return rows;
   }
 
- 
   void _editTableRow(int index, Map<String, dynamic> expense, Map<String, dynamic> revenue) {
     showDialog(
       context: context,
@@ -340,7 +335,6 @@ void dispose() {
                       ),
                     ],
                   ),
-                
               ],
             ),
           ),
@@ -408,11 +402,24 @@ void dispose() {
   );
 }
 
-  double _calculateTotalProfit() {
-    double totalExpenses = expensesList.fold(0, (sum, expense) => sum + (expense['expenseamount'] ?? 0.0));
-    double totalRevenues = revenuesList.fold(0, (sum, revenue) => sum + (revenue['amount'] ?? 0.0));
-    return totalRevenues - totalExpenses;
+double _calculateTotalProfit() {
+  double totalExpenses = expensesList.fold(0, (sum, expense) => sum + (expense['expenseamount'] ?? 0.0));
+  double totalRevenues = revenuesList.fold(0, (sum, revenue) => sum + (revenue['amount'] ?? 0.0));
+  double totalProfit = totalRevenues - totalExpenses;
+
+  if (selectedCrewMemberIds.isEmpty) {
+    // If there are no crew members selected, set remaining amount to total profit
+    remainingAmount = totalProfit;
   }
+  
+  // Ensure _calculateShareForOwners() is called only when necessary
+  if (!updatingShareForOwners) {
+    updatingShareForOwners = true;
+    _calculateShareForOwners();
+    updatingShareForOwners = false;
+  }
+  return totalProfit;
+}
 
   Future<void> _selectSailingDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
@@ -456,77 +463,49 @@ void dispose() {
     }
   }
 
-
-
-
-
-void _calculateShareForOwners() {
-    totalInvest = _calculateTotalInvest();
-
-    for (var owner in owners) {
-      if (selectedOwnerIds.contains(owner.id)) {
-        double ownerInvest = ownerInvestments[owner.id] ?? 0;
-        double share = _calculateShare(ownerInvest, totalInvest);
-        setState(() {
-          ownerShares[owner.id] = share;
-        });
+  List<DataRow> _buildCrewMembersRows() {
+    return crewMembers
+        .where((crewMember) => selectedCrewMemberIds.contains(crewMember.id))
+        .map((crewMember) {
+      String memberId = crewMember.id;
+      late TextEditingController amountController;
+      if (crewAmountControllers.containsKey(memberId)) {
+        amountController = crewAmountControllers[memberId]!;
+      } else {
+        amountController = TextEditingController(
+            text: (crewAmounts[memberId] ?? 0.0).toString());
+        crewAmountControllers[memberId] = amountController;
       }
-    }
-  }
 
-  double _calculateShare(double invest, double totalInvest) {
-    return invest > 0 && totalInvest > 0 ? (invest / totalInvest) * 100 : 0;
-  }
-
-  double _calculateTotalInvest() {
-    double total = 0;
-    for (var ownerId in ownerInvestments.keys) {
-      if (selectedOwnerIds.contains(ownerId)) {
-        total += ownerInvestments[ownerId] ?? 0;
-      }
-    }
-    return total;
-  }
-
- List<DataRow> _buildCrewMembersRows() {
-  return crewMembers
-      .where((crewMember) => selectedCrewMemberIds.contains(crewMember.id))
-      .map((crewMember) {
-    String memberId = crewMember.id;
-    late TextEditingController amountController;
-    if (crewAmountControllers.containsKey(memberId)) {
-      amountController = crewAmountControllers[memberId]!;
-    } else {
-      amountController = TextEditingController(
-          text: (crewAmounts[memberId] ?? 0.0).toString());
-      crewAmountControllers[memberId] = amountController;
-    }
-
-    return DataRow(
-      cells: [
-        DataCell(Text(crewMember['name']?.toString() ?? '')),
-        DataCell(Text(crewMember['phone']?.toString() ?? '')),
-        DataCell(Text(crewMember['email']?.toString() ?? '')),
-        DataCell(
-          TextFormField(
-            controller: amountController,
-            keyboardType: TextInputType.number,
-            onChanged: (value) {
-              double amount = double.tryParse(value) ?? 0.0;
-              setState(() {
-                crewAmounts[memberId] = amount;
-              });
-            },
-           
+      return DataRow(
+        cells: [
+          DataCell(Text(crewMember['name']?.toString() ?? '')),
+          DataCell(Text(crewMember['phone']?.toString() ?? '')),
+          DataCell(Text(crewMember['email']?.toString() ?? '')),
+          DataCell(
+            SizedBox(
+              width: 100,
+              child: TextFormField(
+                controller: amountController,
+                keyboardType: TextInputType.number,
+                onChanged: (value) {
+                  double amount = double.tryParse(value) ?? 0.0;
+                  crewAmounts[memberId] = amount;
+                  setState(() {
+                    remainingAmount = _calculateRemainingAmount();
+                  });
+                },
+                decoration: InputDecoration(labelText: 'Amount'),
+              ),
+            ),
           ),
-        ),
-      ],
-    );
-  }).toList();
-}
-
+        ],
+      );
+    }).toList();
+  }
 
 Future<void> _selectCrewMembers(BuildContext context) async {
+    double totalProfit = _calculateTotalProfit();
   try {
     // Retrieve the current user
     User? user = _auth.currentUser;
@@ -594,6 +573,10 @@ Future<void> _selectCrewMembers(BuildContext context) async {
                                       crewAmountControllers[crewMember.id]?.dispose();
                                       crewAmountControllers.remove(crewMember.id);
                                     }
+ double remainingAmount = newBool
+        ? _calculateRemainingAmount()
+        : totalProfit - _calculateTotalCrewAmount(); // Subtract unselected crew member's amount
+      _updateCrewAmountAndRemaining(remainingAmount);
                                   }
                                 });
                               },
@@ -628,6 +611,72 @@ Future<void> _selectCrewMembers(BuildContext context) async {
   }
 }
 
+double _calculateTotalCrewAmount() {
+  return selectedCrewMemberIds.fold(0, (sum, memberId) => sum + (crewAmounts[memberId] ?? 0.0));
+}
+
+double _calculateRemainingAmount() {
+  double totalExpenses = expensesList.fold(0, (sum, expense) => sum + (expense['expenseamount'] ?? 0.0));
+  double totalRevenues = revenuesList.fold(0, (sum, revenue) => sum + (revenue['amount'] ?? 0.0));
+  double totalProfit = totalRevenues - totalExpenses;
+  double remainingAmount;
+  if (crewAmounts.isEmpty) {
+    // If there are no crew amounts, set remaining amount to total profit
+     setState(() {
+      remainingAmount = totalProfit;
+    });
+    return totalProfit;
+  } else {
+    // Calculate total crew amount if crew amounts are present
+    double totalCrewAmount = _calculateTotalCrewAmount();
+    remainingAmount = totalProfit - totalCrewAmount;
+    setState(() {
+      this.remainingAmount = remainingAmount;
+    });
+  }
+  return remainingAmount;
+}
+
+void _updateCrewAmountAndRemaining(double remainingAmount) {
+  setState(() {
+    this.remainingAmount = remainingAmount;
+  });
+}
+
+void _calculateShareForOwners() {
+  double totalProfit = _calculateTotalProfit();
+  double remainingAmount = _calculateRemainingAmount();
+  totalInvest = _calculateTotalInvest();
+
+  for (var owner in owners) {
+    if (selectedOwnerIds.contains(owner.id)) {
+      double ownerInvest = ownerInvestments[owner.id] ?? 0;
+      double share = _calculateShare(ownerInvest, totalInvest);
+      double profitShareAmount = totalProfit > 0 ? (share / 100) * totalProfit : 0; // Calculate profit share only if total profit is non-zero
+      double remainingAmountShare = remainingAmount > 0 ? (share / 100) * remainingAmount : 0;
+      setState(() {
+        ownerShares[owner.id] = share;
+        ownerProfitShares[owner.id] = profitShareAmount;
+        ownerRemainingAmountShares[owner.id] = remainingAmountShare;
+      });
+    }
+  }
+}
+
+  double _calculateShare(double invest, double totalInvest) {
+    return invest > 0 && totalInvest > 0 ? (invest / totalInvest) * 100 : 0;
+  }
+
+  double _calculateTotalInvest() {
+    double total = 0;
+    for (var ownerId in ownerInvestments.keys) {
+      if (selectedOwnerIds.contains(ownerId)) {
+        total += ownerInvestments[ownerId] ?? 0;
+      }
+    }
+    return total;
+  }
+
 List<DataRow> _buildOwnersRows() {
   return owners
       .where((owner) => selectedOwnerIds.contains(owner.id))
@@ -640,6 +689,7 @@ List<DataRow> _buildOwnersRows() {
       investmentController = TextEditingController(
           text: (ownerInvestments[ownerId] ?? 0.0).toString());
       ownerInvestmentControllers[ownerId] = investmentController;
+      
     }
 
     return DataRow(
@@ -661,18 +711,18 @@ List<DataRow> _buildOwnersRows() {
            
           ),
         ),
-        DataCell(Text('0.0')), // Always display '0' for double share
-      ],
+        DataCell(Text(ownerShares[owner.id]?.toString() ?? '0.0')), // Display owner's share
+        DataCell(Text(ownerProfitShares[owner.id]?.toString() ?? '0.0')), // Display profit share amount // Always display '0' for double share
+        DataCell(Text(ownerRemainingAmountShares[owner.id]?.toString() ?? '0.0')), // Display remaining amount share
+       ],
     );
   }).toList();
 }
-
 
 Future<void> _selectOwners(BuildContext context) async {
   try {
     // Retrieve the current user
     User? user = _auth.currentUser;
-
     if (user != null) {
       // Retrieve user's organization ID from Firestore
       DocumentSnapshot userDoc =
@@ -736,6 +786,7 @@ Future<void> _selectOwners(BuildContext context) async {
                                       ownerInvestmentControllers[owner.id]?.dispose();
                                       ownerInvestmentControllers.remove(owner.id);
                                     }
+                                     _calculateShareForOwners();
                                   }
                                 });
                               },
@@ -787,7 +838,7 @@ Future<void> _addNewEntry() async {
 
         // Step 3: Check if the user's role is 'Headowner'
         if (userRole == 'Headowner') {
-          // Step 4: Allow Headowner to create newentrycollection for their organization with four subcollections
+          // Step 4: Allow Headowner to create new entry collection for their organization with four subcollections
           CollectionReference organizationCollection =
               FirebaseFirestore.instance.collection('organizations');
           DocumentReference organizationDocRef = organizationCollection.doc(organizationId);
@@ -797,7 +848,19 @@ Future<void> _addNewEntry() async {
               await organizationDocRef.get().then((doc) => doc.exists);
 
           if (organizationExists) {
-            // If the organization exists, add new entry directly
+            // Validate if necessary fields are selected
+            if (selectedSailingDate == null ||
+                selectedReturnDate == null ||
+                selectedMonth == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Please select sailing date, return date, and month.'),
+                ),
+              );
+              return; // Exit function if validation fails
+            }
+
+            // If the organization exists and necessary fields are selected, add new entry directly
             DocumentReference newEntryDocRef = organizationDocRef.collection('newentry').doc();
 
             // Add fields for the new entry
@@ -806,6 +869,7 @@ Future<void> _addNewEntry() async {
               'sailingdate': selectedSailingDate,
               'returndate': selectedReturnDate,
               'totalprofit': _calculateTotalProfit(),
+              'remainingamount': _calculateRemainingAmount(),
             });
 
             // Add subcollections
@@ -819,9 +883,8 @@ Future<void> _addNewEntry() async {
                 content: Text('Added to New Entry'),
               ),
             );
-           // Navigate back to the home screen
+            // Navigate back to the home screen
             Navigator.pop(context);
-
           } else {
             print('Organization does not exist.');
           }
@@ -892,12 +955,31 @@ Future<void> _addOwnerShareSubcollection(DocumentReference newEntryDocRef) async
     // Use the same ID as the 'owners' collection
     DocumentReference ownerShareDocRef = ownerShareCollection.doc(ownerId);
 
+    double totalProfit= _calculateTotalProfit();
     await ownerShareDocRef.set({
       'name': owner['name'],
       'phone': owner['phone'],
       'email': owner['email'],
       'invest': ownerInvestments[ownerId],
       'share': ownerShares[ownerId],
+      'profitshareamount': _calculateProfitShareAmount(ownerShares[ownerId]!,totalProfit),
+      'remainingamountshare': _calculateRemainingAmountShare(ownerShares[ownerId]!, remainingAmount)
+
     });
   }
-}}
+}
+
+double _calculateRemainingAmountShare(double sharePercentage, double remainingAmount) {
+  double remainingAmount = _calculateRemainingAmount();
+  // Calculate the remaining amount share based on the share percentage and the remaining amount
+  double remainingAmountShare = remainingAmount > 0 ? (sharePercentage / 100.0) * remainingAmount : 0;
+  return remainingAmountShare;
+}
+
+double _calculateProfitShareAmount(double sharePercentage, double totalProfit) {
+  double totalProfit = _calculateTotalProfit();
+  // Calculate the profit share amount based on the share percentage and the total profit
+  double profitShareAmount = totalProfit > 0 ? (sharePercentage / 100.0) * totalProfit : 0;
+  return profitShareAmount;
+}
+}

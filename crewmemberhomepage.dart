@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:fishbook/analyticsscreen.dart';
+
 import 'package:fishbook/notificationsscreen.dart';
 import 'package:fishbook/statementsscreen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -177,11 +177,7 @@ class _CrewmemberHomePageState extends State<CrewmemberHomePage> {
           label: "Notifications",
           backgroundColor: Color(0xFFF9D8C5),
         ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.bar_chart),
-          label: "Analytics",
-          backgroundColor: Color(0xFFF9D8C5),
-        ),
+       
       ],
       onTap: (index) {
         switch (index) {
@@ -212,15 +208,7 @@ class _CrewmemberHomePageState extends State<CrewmemberHomePage> {
               ),
             );
             break;
-          case 3:
-            // Navigate to AnalyticsScreen
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => AnalyticsPage(),
-              ),
-            );
-            break;
+         
         }
       },
     );

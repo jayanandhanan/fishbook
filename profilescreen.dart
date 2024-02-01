@@ -14,6 +14,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final _auth = FirebaseAuth.instance;
   final _firestore = FirebaseFirestore.instance;
+  
   User? loggedInUser;
 
   @override
@@ -79,30 +80,180 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _updateProfile() async {
-    try {
-      final userDoc = _firestore.collection('users').doc(loggedInUser?.uid);
+ void _updateProfile() async {
+  try {
+    final userDoc = _firestore.collection('users').doc(loggedInUser?.uid);
 
-      await userDoc.update({
-        'name': _nameController.text,
-        'phone': _phoneController.text,
-        'boatname': _boatNameController.text,
-      });
+    // Retrieve updated values for all fields
+    final name = _nameController.text.isNotEmpty ? _nameController.text : _nameController.text;
+    final phone = _phoneController.text.isNotEmpty ? _phoneController.text : _phoneController.text;
+    final boatName = _boatNameController.text.isNotEmpty ? _boatNameController.text : _boatNameController.text;
 
-      // Update the profile screen
-      setState(() {});
+    final userData = await userDoc.get();
+    final existingData = userData.data() as Map<String, dynamic>?;
 
-      Navigator.pop(context); // Close the dialog
-    } catch (e) {
-      print('Error updating profile: $e');
-      // Handle error
-    }
+    // Preserve existing values if fields are empty
+    final updatedData = {
+      'name': name.isNotEmpty ? name : existingData?['name'],
+      'phone': phone.isNotEmpty ? phone : existingData?['phone'],
+      'boatname': boatName.isNotEmpty ? boatName : existingData?['boatname'],
+    };
+
+    // Update user profile
+    await userDoc.update(updatedData);
+
+    // Update subcollection fields
+    await _updateSubcollectionFields(loggedInUser!.uid, updatedData);
+
+    await _updateWorkManagementSubcollectionFields(loggedInUser!.uid, updatedData);
+ await _updateSalaryToCrewMembersSubcollection(loggedInUser!.uid,  updatedData);
+    await _updateOwnerShareSubcollection(loggedInUser!.uid, updatedData);
+
+    // Update the profile screen UI
+    if (mounted) { // Check if the widget is still mounted
+        setState(() {});
+      }
+    // Close the dialog
+    Navigator.pop(context);
+  } catch (e) {
+    print('Error updating profile: $e');
+    // Handle error
   }
+}
+
+Future<void> _updateSubcollectionFields(String userId, Map<String, dynamic> updatedData) async {
+  try {
+    final userDoc = await _firestore.collection('users').doc(userId).get();
+    final organizationId = userDoc.data()?['organizationId'];
+   
+
+    final subcollections = ['headowners', 'co-owners', 'crewmembers', 'ownerdetails', 'crewmemberdetails'];
+
+    for (String subcollection in subcollections) {
+      final querySnapshot = await _firestore.collection('organizations').doc(organizationId).collection(subcollection).get();
+
+      for (DocumentSnapshot doc in querySnapshot.docs) {
+        // Update only if the document belongs to the current user
+        if (doc.id == userId) {
+          await doc.reference.update({'name': updatedData['name'], 'phone': updatedData['phone']});
+
+        
+        }
+      }
+    }
+  
+  } catch (e) {
+    print('Error updating subcollection fields: $e');
+  }
+}
+
+Future<void> _updateWorkManagementSubcollectionFields(String userId, Map<String, dynamic> updatedData) async {
+  try {
+    final userDoc = await _firestore.collection('users').doc(userId).get();
+    final organizationId = userDoc.data()?['organizationId'];
+   
+
+    final subcollections = ['workmanagement'];
+
+    for (String subcollection in subcollections) {
+      final querySnapshot = await _firestore.collection('organizations').doc(organizationId).collection(subcollection).get();
+
+      for (DocumentSnapshot doc in querySnapshot.docs) {
+        // Update only if the document belongs to the current user
+        if (doc.id == userId) {
+          await doc.reference.update({'incharge': updatedData['name']});
+
+        
+        }
+      }
+    }
+  
+  }
+ catch (e) {
+    print('Error updating workmanagement subcollection: $e');
+  }
+}
+
+Future<void> _updateSalaryToCrewMembersSubcollection(String userId, Map<String, dynamic> updatedData) async {
+  try {
+    final userDoc = await _firestore.collection('users').doc(userId).get();
+    final organizationId = userDoc.data()?['organizationId'];
+     final subcollections = ['salarytocrewmwmbers'];
+
+for (String subcollection in subcollections) {
+    final querySnapshot = await _firestore
+        .collection('organizations')
+        .doc(organizationId)
+        .collection('newentry') // Assuming 'newentry' is a collection under the organization document
+        .get();
+
+    for (DocumentSnapshot entryDoc in querySnapshot.docs) {
+        final entryDocId = entryDoc.id; // Get the ID of each document in the 'newentry' collection
+
+        final subcollectionQuery = await _firestore
+            .collection('organizations')
+            .doc(organizationId)
+            .collection('newentry')
+            .doc(entryDocId)
+            .collection(subcollection)
+            .get();
+    
+for (DocumentSnapshot doc in subcollectionQuery.docs) {
+             // Update only if the document belongs to the current user
+        if (doc.id == userId) {
+          await doc.reference.update({'name': updatedData['name'], 'phone': updatedData['phone']});
+        }
+      }
+    }}
+  } catch (e) {
+    print('Error updating salarytocrewmembers subcollection: $e');
+  }
+}
+
+
+Future<void> _updateOwnerShareSubcollection(String userId,  Map<String, dynamic> updatedData) async {
+ try {
+    final userDoc = await _firestore.collection('users').doc(userId).get();
+    final organizationId = userDoc.data()?['organizationId'];
+     final subcollections = ['ownershare'];
+
+for (String subcollection in subcollections) {
+    final querySnapshot = await _firestore
+        .collection('organizations')
+        .doc(organizationId)
+        .collection('newentry') // Assuming 'newentry' is a collection under the organization document
+        .get();
+
+    for (DocumentSnapshot entryDoc in querySnapshot.docs) {
+        final entryDocId = entryDoc.id; // Get the ID of each document in the 'newentry' collection
+
+        final subcollectionQuery = await _firestore
+            .collection('organizations')
+            .doc(organizationId)
+            .collection('newentry')
+            .doc(entryDocId)
+            .collection(subcollection)
+            .get();
+    
+for (DocumentSnapshot doc in subcollectionQuery.docs) {
+             // Update only if the document belongs to the current user
+        if (doc.id == userId) {
+          await doc.reference.update({'name': updatedData['name'], 'phone': updatedData['phone']});
+        }
+      }
+    }}
+  } catch (e) {
+    print('Error updating ownershare subcollection: $e');
+  }
+}
+
+
 
   TextEditingController _nameController = TextEditingController();
   TextEditingController _phoneController = TextEditingController();
   TextEditingController _boatNameController = TextEditingController();
 
+ 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -148,10 +299,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Icons.person,
                     size: 60,
                   ),
-                ),
-                SizedBox(height: 16),
+                ),  SizedBox(height: 8),
                 Text(
-                  'Boat Name: $boatName',
+                  'Name: $name',
                   style: TextStyle(fontSize: 18),
                 ),
                 SizedBox(height: 8),
@@ -164,9 +314,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   'Email: ${loggedInUser?.email ?? 'N/A'}',
                   style: TextStyle(fontSize: 18),
                 ),
-                SizedBox(height: 8),
+               SizedBox(height: 16),
                 Text(
-                  'Name: $name',
+                  'Boat Name: $boatName',
                   style: TextStyle(fontSize: 18),
                 ),
               ],

@@ -79,6 +79,7 @@ class CrewMembersPageState extends State<CrewMembersPage> {
       DataColumn(label: Text('Name')),
       DataColumn(label: Text('Phone')),
       DataColumn(label: Text('Email')),
+       DataColumn(label: Text('Type')),
       DataColumn(label: Text('Actions')),
     ];
   }
@@ -108,27 +109,96 @@ class CrewMembersPageState extends State<CrewMembersPage> {
           DataCell(
             Text(crewmemberDetail['email'].toString()),
           ),
+           DataCell(
+            FutureBuilder<Widget>(
+              future: _buildAddedByColumn(crewmemberDetail),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return CircularProgressIndicator(); // or any other loading indicator
+                } else {
+                  if (snapshot.hasError) {
+                    return Text('Error: ${snapshot.error}');
+                  } else {
+                    return snapshot.data!;
+                  }
+                }
+              },
+            ),
+          ),
           DataCell(
             Row(
               children: [
                 IconButton(
                   icon: Icon(Icons.edit),
-                  onPressed: () {
-                    editCrewMemberDetail(crewmemberDetail);
+                  onPressed: () async {
+                    if (await _isEditingAllowed(crewmemberDetail.id)) {
+                      editCrewMemberDetail(crewmemberDetail);
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('You cannot edit this owner.'),
+                        ),
+                      );
+                    }
                   },
                 ),
-                IconButton(
-                  icon: Icon(Icons.delete),
-                  onPressed: () {
-                    deleteCrewMemberDetail(crewmemberDetail);
-                  },
-                ),
+                
+                  IconButton(
+                    icon: Icon(Icons.delete),
+                    onPressed: () async {
+                      if (await _isEditingAllowed(crewmemberDetail.id)) {
+                        deleteCrewMemberDetail(crewmemberDetail);
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('You cannot delete this owner.'),
+                          ),
+                        );
+                      }
+                    },
+                  ),
               ],
             ),
           ),
         ],
       );
     }).toList();
+  }
+    Future<Widget> _buildAddedByColumn(DocumentSnapshot crewmemberDetail) async {
+    if (await _isDocumentIdPresent(crewmemberDetail.id)) {
+      return Text('Signed in user');
+    } else {
+      return Text('Written');
+    }
+  }
+
+ Future<bool> _isDocumentIdPresent(String documentId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final organizationSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      final organizationId = organizationSnapshot.data()?['organizationId'];
+
+      final crewMemberRef = FirebaseFirestore.instance
+          .collection('organizations')
+          .doc(organizationId)
+          .collection('crewmembers');
+     
+      final crewMemberQuery = await crewMemberRef.get();
+      
+
+      final List<String> crewMemberIds =
+          crewMemberQuery.docs.map((doc) => doc.id).toList();
+     
+
+      return crewMemberIds.contains(documentId) ;
+    }
+    return false;
+  }
+ Future<bool> _isEditingAllowed(String documentId) async {
+    return !(await _isDocumentIdPresent(documentId));
   }
 
   Widget _buildAddOrUpdateCrewMemberDialog(BuildContext context) {
@@ -214,7 +284,7 @@ class CrewMembersPageState extends State<CrewMembersPage> {
       // If the user's role is not 'Headowner', display a message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('You do not have permission to add owners.'),
+          content: Text('You do not have permission to add crewmembers.'),
         ),
       );
     }
@@ -246,7 +316,7 @@ class CrewMembersPageState extends State<CrewMembersPage> {
       // If the user's role is not 'Headowner', display a message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('You do not have permission to add owners.'),
+          content: Text('You do not have permission to add crewmembers.'),
         ),
       );
     }

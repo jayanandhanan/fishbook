@@ -1,7 +1,11 @@
+// ignore_for_file: unused_import
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'chart_screen.dart';
+import 'package:fishbook/chart_screen.dart';
+import 'package:fishbook/filteranalyticsscreen.dart'; 
+
 
 class AnalyticsPage extends StatefulWidget {
   @override
@@ -140,8 +144,15 @@ Widget build(BuildContext context) {
             ),
             ElevatedButton(
               onPressed: _addToDatabase,
-              child: Text('Add to Database'),
+              child: Text('Chart'),
             ),
+              SizedBox(height: 16),
+             ElevatedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/filter'); // Navigate to FilterAnalyticsScreen
+                },
+                child: Text('Filter and Create Chart'), // Button to navigate to FilterAnalyticsScreen
+              ),
           ],
         ),
       ),
@@ -158,11 +169,17 @@ Widget _buildAnalyticsTable() {
     List<String> partsA = a.split('-');
     List<String> partsB = b.split('-');
     int yearComparison = partsA[1].compareTo(partsB[1]);
+    
     if (yearComparison != 0) {
       return yearComparison;
     } else {
       // If years are the same, compare months
-      return partsA[0].compareTo(partsB[0]);
+      Map<String, int> monthOrder = {
+        'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
+        'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12,
+      };
+      
+      return monthOrder[partsA[0]]!.compareTo(monthOrder[partsB[0]]!);
     }
   });
 

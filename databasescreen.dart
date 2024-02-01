@@ -42,15 +42,6 @@ class _DatabaseScreenState extends State<DatabaseScreen> {
   }
 }
 
-  double _calculateShare(double invest, double totalInvest) {
-    if (totalInvest == 0) {
-      // To avoid division by zero
-      return 0.0;
-    }
-
-    return (invest / totalInvest) * 100;
-  }
-
   Future<void> _updateTotalProfit(String documentId) async {
     try {
       var revenueSnapshot = await FirebaseFirestore.instance
@@ -86,7 +77,11 @@ class _DatabaseScreenState extends State<DatabaseScreen> {
           .doc(documentId)
           .update({'totalprofit': totalProfit});
 
+          await _updateProfitShareAmount(documentId);
+          _updateRemainingAmount(documentId);
+
       setState(() {});
+      
     } catch (e) {
       print('Error updating total profit: $e');
       // Handle error, show a snackbar, or any other appropriate action
@@ -192,7 +187,6 @@ void _deleteNewEntryDocument(String documentId, String userRole) async {
   }
 }
 
-
   Widget _buildMainDocumentFields(QueryDocumentSnapshot document) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -230,6 +224,7 @@ void _deleteNewEntryDocument(String documentId, String userRole) async {
             ],
           ),
           Text('Total Profit: ${document['totalprofit']}'),
+          Text('Remaining Amount After Crewmember Salary: ${document['remainingamount']}'),
         ],
       ),
     );
@@ -272,6 +267,74 @@ void _deleteNewEntryDocument(String documentId, String userRole) async {
       ],
     );
   }
+
+double _calculateCrewMemberSalary(QuerySnapshot salarySnapshot) {
+  double totalSalary = salarySnapshot.docs
+      .map((doc) => (doc['amount'] as double?) ?? 0.0)
+      .fold(0.0, (sum, amount) => sum + amount);
+
+  return totalSalary;
+}
+
+double _calculateRemainingAmount(double totalProfit, double crewMemberSalary) {
+  return totalProfit - crewMemberSalary;
+}
+
+Future<void> _updateRemainingAmount(String documentId) async {
+  try {
+    var revenueSnapshot = await FirebaseFirestore.instance
+        .collection('organizations')
+        .doc(organizationId)
+        .collection('newentry')
+        .doc(documentId)
+        .collection('revenue')
+        .get();
+
+    var expenseSnapshot = await FirebaseFirestore.instance
+        .collection('organizations')
+        .doc(organizationId)
+        .collection('newentry')
+        .doc(documentId)
+        .collection('expense')
+        .get();
+
+    var salarySnapshot = await FirebaseFirestore.instance
+        .collection('organizations')
+        .doc(organizationId)
+        .collection('newentry')
+        .doc(documentId)
+        .collection('salarytocrewmembers')
+        .get();
+
+    double totalRevenue = revenueSnapshot.docs
+        .map((doc) => (doc['amount'] as double?) ?? 0.0)
+        .fold(0.0, (sum, amount) => sum + amount);
+
+    double totalExpense = expenseSnapshot.docs
+        .map((doc) => (doc['expenseamount'] as double?) ?? 0.0)
+        .fold(0.0, (sum, amount) => sum + amount);
+
+    double totalProfit = totalRevenue - totalExpense;
+
+    double crewMemberSalary = _calculateCrewMemberSalary(salarySnapshot);
+
+    double remainingAmount = _calculateRemainingAmount(totalProfit, crewMemberSalary);
+
+    await FirebaseFirestore.instance
+        .collection('organizations')
+        .doc(organizationId)
+        .collection('newentry')
+        .doc(documentId)
+        .update({'remainingamount': remainingAmount});
+
+        await _updateRemainingAmountShare(documentId);
+
+    setState(() {});
+  } catch (e) {
+    print('Error updating remaining amount: $e');
+    // Handle error, show a snackbar, or any other appropriate action
+  }
+}
 
  void _editSailingDate(
     String documentId, Timestamp sailingDate, String userRole) async {
@@ -400,7 +463,6 @@ void _editMonthConsidered(
   }
 }
 
-
 Widget _buildRevenueExpenseTable(String documentId) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -442,7 +504,6 @@ Widget _buildRevenueExpenseTable(String documentId) {
     ],
   );
 }
-
 
   List<DataRow> _buildRevenueExpenseRows(String documentId,
       QuerySnapshot revenue, QuerySnapshot expense) {
@@ -577,6 +638,7 @@ Widget _buildRevenueExpenseTable(String documentId) {
 
                 // Update totalprofit after adding
                 await _updateTotalProfit(documentId);
+                _updateRemainingAmount(documentId);
               },
               child: Text('Add'),
             ),
@@ -662,6 +724,7 @@ void _editRevenueExpense(String documentId, DocumentSnapshot revenue,
 
                 // Update totalprofit after editing
                 await _updateTotalProfit(documentId);
+                _updateRemainingAmount(documentId);
               } catch (e) {
                 print('Error updating revenue and expense: $e');
                 // Handle error, show a snackbar, or any other appropriate action
@@ -708,6 +771,7 @@ void _editRevenueExpense(String documentId, DocumentSnapshot revenue,
 
     // Update totalprofit after deleting
     await _updateTotalProfit(documentId);
+    _updateRemainingAmount(documentId);
   } catch (e) {
     print('Error deleting revenue and expense: $e');
     // Handle error, show a snackbar, or any other appropriate action
@@ -768,7 +832,7 @@ Widget _buildCrewMembersTable(String documentId) {
                 DataColumn(label: Text('Amount')),
                 DataColumn(label: Text('Actions')),
               ],
-              rows: _buildCrewMembersRows(documents),
+              rows: _buildCrewMembersRows(documents,documentId),
             ),
           );
         },
@@ -778,6 +842,7 @@ Widget _buildCrewMembersTable(String documentId) {
         padding: const EdgeInsets.only(left: 16.0),
         child: ElevatedButton(
           onPressed: () => _addCrewMemberToSalary(documentId),
+          
           child: Text('Add Crew Member'),
         ),
       ),
@@ -785,8 +850,7 @@ Widget _buildCrewMembersTable(String documentId) {
   );
 }
 
-
-List<DataRow> _buildCrewMembersRows(List<DocumentSnapshot> documents) {
+List<DataRow> _buildCrewMembersRows(List<DocumentSnapshot> documents,documentId) {
   List<DataRow> rows = [];
 
   documents.forEach((doc) {
@@ -808,14 +872,14 @@ List<DataRow> _buildCrewMembersRows(List<DocumentSnapshot> documents) {
             icon: Icon(Icons.edit),
             onPressed: () {
               // Implement edit functionality
-              _editCrewMemberSalary(doc.reference, role); // Pass the document ID for editing
+              _editCrewMemberSalary(doc.reference, role,documentId); // Pass the document ID for editing
             },
           ),
           IconButton(
             icon: Icon(Icons.delete),
             onPressed: () {
               // Implement delete functionality
-              _deleteCrewMemberSalary(doc.reference, role); // Pass the document ID for deletion
+              _deleteCrewMemberSalary(doc.reference, role,documentId); // Pass the document ID for deletion
             },
           ),
         ],
@@ -828,7 +892,7 @@ List<DataRow> _buildCrewMembersRows(List<DocumentSnapshot> documents) {
   return rows;
 }
 
-void _editCrewMemberSalary(DocumentReference documentReference, String userRole) {
+void _editCrewMemberSalary(DocumentReference documentReference, String userRole,String documentId) {
   if (userRole != 'Headowner') {
     print('You do not have access to edit crew member salaries.');
     return;
@@ -873,10 +937,12 @@ void _editCrewMemberSalary(DocumentReference documentReference, String userRole)
                   ),
                 );
 
+                await _updateRemainingAmount(documentId);
                 // Refresh the UI
                 setState(() {});
 
                 Navigator.pop(context); // Close the dialog
+                
               } catch (e) {
                 print('Error updating crew member salary: $e');
                 // Show an error message
@@ -895,8 +961,7 @@ void _editCrewMemberSalary(DocumentReference documentReference, String userRole)
   );
 }
 
-
-void _deleteCrewMemberSalary(DocumentReference documentReference, String userRole) {
+void _deleteCrewMemberSalary(DocumentReference documentReference, String userRole, String documentId) {
   if (userRole != 'Headowner') {
     print('You do not have access to delete crew member salary entries.');
     return;
@@ -928,10 +993,14 @@ void _deleteCrewMemberSalary(DocumentReference documentReference, String userRol
                   ),
                 );
 
+                // Update the remaining amount
+               await _updateRemainingAmount(documentId);
+
                 // Refresh the UI
                 setState(() {});
 
                 Navigator.pop(context); // Close the dialog
+               
               } catch (e) {
                 print('Error deleting crew member salary entry: $e');
                 // Show an error message
@@ -965,193 +1034,6 @@ Future<QuerySnapshot> _fetchCrewMembersSalarySubcollection(String documentId) as
   }
 }
 
-Widget _buildOwnersShareTable(String documentId) {
-  return SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            FutureBuilder(
-              future: _fetchOwnerShareSubcollection(documentId),
-              builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return CircularProgressIndicator();
-                }
-
-                if (snapshot.hasError) {
-                  return Text('Error: ${snapshot.error}');
-                }
-
-                var documents = snapshot.data!.docs;
-
-                return DataTable(
-                  columnSpacing: 16.0,
-                  columns: [
-                    DataColumn(label: Text('Name')),
-                    DataColumn(label: Text('Email')),
-                    DataColumn(label: Text('Phone')),
-                    DataColumn(label: Text('Invest')),
-                    DataColumn(label: Text('Share')),
-                    DataColumn(label: Text('Actions')), // New column for actions
-                  ],
-                  rows: _buildOwnersShareRows(documents, documentId),
-                );
-              },
-            ),
-            SizedBox(height: 20), // Add spacing between DataTable and button
-          ],
-        ),
-        Padding(
-          padding: const EdgeInsets.only(left: 16.0), // Adjust the left padding as needed
-          child: ElevatedButton(
-            onPressed: () => _addOwnerToShare(documentId),
-            child: Text('Add Owner'),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-List<DataRow> _buildOwnersShareRows(List<QueryDocumentSnapshot> documents, String documentId) {
-  List<DataRow> rows = [];
-
-  for (var document in documents) {
-    String ownerId = document.id;
-    String name = document['name'] ?? '';
-    String email = document['email'] ?? '';
-    String phone = document['phone'] ?? '';
-    double invest = (document['invest'] ?? 0).toDouble(); // Parse as double
-    double share = (document['share'] ?? 0).toDouble(); // Parse as double
-
-    rows.add(DataRow(cells: [
-      DataCell(Text(name)),
-      DataCell(Text(email)),
-      DataCell(Text(phone)),
-      DataCell(Text(invest.toString())),
-      DataCell(Text(share.toString())),
-      DataCell(Row(
-        children: [
-          IconButton(
-            icon: Icon(Icons.edit),
-            onPressed: () => _editOwnerShare(documentId, ownerId, invest, role),
-          ),
-          IconButton(
-            icon: Icon(Icons.delete),
-            onPressed: () => _deleteOwnerShare(documentId, ownerId, role),
-          ),
-        ],
-      )),
-    ]));
-  }
-
-  return rows;
-}
-
-Future<void> _editOwnerShare(String documentId, String ownerId, double currentInvest, String userRole) async {
-  if (userRole != 'Headowner') {
-    print('You do not have access to edit owner shares.');
-    return;
-  }
-
-  TextEditingController investController = TextEditingController(text: currentInvest.toString());
-
-  await showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        title: Text('Edit Investment'),
-        content: TextField(
-          controller: investController,
-          decoration: InputDecoration(labelText: 'Investment'),
-          keyboardType: TextInputType.number,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            child: Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              double newInvest = double.parse(investController.text);
-
-              try {
-                await FirebaseFirestore.instance
-                    .collection('organizations')
-                    .doc(organizationId)
-                    .collection('newentry')
-                    .doc(documentId)
-                    .collection('ownershare')
-                    .doc(ownerId)
-                    .update({'invest': newInvest});
-
-                // Recalculate share
-                await _recalculateOwnerShare(documentId);
-
-                // Refresh the UI
-                setState(() {});
-
-                Navigator.pop(context);
-              } catch (e) {
-                print('Error editing owner share: $e');
-              }
-            },
-            child: Text('Save'),
-          ),
-        ],
-      );
-    },
-  );
-}
-
-Future<void> _deleteOwnerShare(String documentId, String ownerId, String userRole) async {
-  if (userRole != 'Headowner') {
-    print('You do not have access to delete owner shares.');
-    return;
-  }
-
-  try {
-    await FirebaseFirestore.instance
-        .collection('organizations')
-        .doc(organizationId)
-        .collection('newentry')
-        .doc(documentId)
-        .collection('ownershare')
-        .doc(ownerId)
-        .delete();
-
-    // Recalculate share
-    await _recalculateOwnerShare(documentId);
-
-    // Refresh the UI
-    setState(() {});
-
-  } catch (e) {
-    print('Error deleting owner share: $e');
-  }
-}
-
-
-
-Future<QuerySnapshot> _fetchOwnerShareSubcollection(String documentId) async {
-  try {
-    return await FirebaseFirestore.instance
-        .collection('organizations')
-        .doc(organizationId)
-        .collection('newentry')
-        .doc(documentId)
-        .collection('ownershare')
-        .get();
-  } catch (e) {
-    print('Error fetching owner share: $e');
-    throw e;
-  }
-}
 // Function to add crew member to salarytocrewmembers subcollection
 Future<void> _addCrewMemberToSalary(String documentId) async {
   List<String> selectedCrewMembers = [];
@@ -1270,7 +1152,7 @@ Future<void> _addCrewMemberToSalary(String documentId) async {
     );
   }
                 }
-
+               await _updateRemainingAmount(documentId);
                 // Update UI
                 setState(() {});
 
@@ -1287,6 +1169,200 @@ Future<void> _addCrewMemberToSalary(String documentId) async {
   }
 }
 
+Widget _buildOwnersShareTable(String documentId) {
+  return SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            FutureBuilder(
+              future: _fetchOwnerShareSubcollection(documentId),
+              builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return CircularProgressIndicator();
+                }
+
+                if (snapshot.hasError) {
+                  return Text('Error: ${snapshot.error}');
+                }
+
+                var documents = snapshot.data!.docs;
+
+                return DataTable(
+                  columnSpacing: 16.0,
+                  columns: [
+                    DataColumn(label: Text('Name')),
+                    DataColumn(label: Text('Email')),
+                    DataColumn(label: Text('Phone')),
+                    DataColumn(label: Text('Invest')),
+                    DataColumn(label: Text('Share')),
+                    DataColumn(label: Text('Profit Amount Share')),
+                    DataColumn(label: Text('Remaining Amount Share')),
+                    DataColumn(label: Text('Actions')), // New column for actions
+                  ],
+                  rows: _buildOwnersShareRows(documents, documentId),
+                );
+              },
+            ),
+            SizedBox(height: 20), // Add spacing between DataTable and button
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: 16.0), // Adjust the left padding as needed
+          child: ElevatedButton(
+            onPressed: () => _addOwnerToShare(documentId),
+            child: Text('Add Owner'),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+List<DataRow> _buildOwnersShareRows(List<QueryDocumentSnapshot> documents, String documentId) {
+  List<DataRow> rows = [];
+
+  for (var document in documents) {
+    String ownerId = document.id;
+    String name = document['name'] ?? '';
+    String email = document['email'] ?? '';
+    String phone = document['phone'] ?? '';
+    double invest = (document['invest'] ?? 0).toDouble(); // Parse as double
+    double share = (document['share'] ?? 0).toDouble(); // Parse as double
+    double profitShareAmount = (document['profitshareamount'] ?? 0).toDouble();
+    double remainingAmountShare = (document['remainingamountshare'] ?? 0).toDouble();
+    rows.add(DataRow(cells: [
+      DataCell(Text(name)),
+      DataCell(Text(email)),
+      DataCell(Text(phone)),
+      DataCell(Text(invest.toString())),
+      DataCell(Text(share.toString())),
+      DataCell(Text(profitShareAmount.toString())),
+      DataCell(Text(remainingAmountShare.toString())),
+      DataCell(Row(
+        children: [
+          IconButton(
+            icon: Icon(Icons.edit),
+            onPressed: () => _editOwnerShare(documentId, ownerId, invest, role),
+          ),
+          IconButton(
+            icon: Icon(Icons.delete),
+            onPressed: () => _deleteOwnerShare(documentId, ownerId, role),
+          ),
+        ],
+      )),
+    ]));
+  }
+
+  return rows;
+}
+
+Future<void> _editOwnerShare(String documentId, String ownerId, double currentInvest, String userRole) async {
+  if (userRole != 'Headowner') {
+    print('You do not have access to edit owner shares.');
+    return;
+  }
+
+  TextEditingController investController = TextEditingController(text: currentInvest.toString());
+
+  await showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text('Edit Investment'),
+        content: TextField(
+          controller: investController,
+          decoration: InputDecoration(labelText: 'Investment'),
+          keyboardType: TextInputType.number,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              double newInvest = double.parse(investController.text);
+
+              try {
+                await FirebaseFirestore.instance
+                    .collection('organizations')
+                    .doc(organizationId)
+                    .collection('newentry')
+                    .doc(documentId)
+                    .collection('ownershare')
+                    .doc(ownerId)
+                    .update({'invest': newInvest});
+
+                // Recalculate share
+                 await _recalculateOwnerShare(documentId);
+                 await _updateProfitShareAmount(documentId);
+                 await _updateRemainingAmountShare(documentId);
+
+                // Refresh the UI
+                setState(() {});
+
+                Navigator.pop(context);
+              } catch (e) {
+                print('Error editing owner share: $e');
+              }
+            },
+            child: Text('Save'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+Future<void> _deleteOwnerShare(String documentId, String ownerId, String userRole) async {
+  if (userRole != 'Headowner') {
+    print('You do not have access to delete owner shares.');
+    return;
+  }
+
+  try {
+    await FirebaseFirestore.instance
+        .collection('organizations')
+        .doc(organizationId)
+        .collection('newentry')
+        .doc(documentId)
+        .collection('ownershare')
+        .doc(ownerId)
+        .delete();
+
+    // Recalculate share
+   await _recalculateOwnerShare(documentId);
+   await _updateProfitShareAmount(documentId);
+   await _updateRemainingAmountShare(documentId);
+
+    // Refresh the UI
+    setState(() {});
+
+  } catch (e) {
+    print('Error deleting owner share: $e');
+  }
+}
+
+Future<QuerySnapshot> _fetchOwnerShareSubcollection(String documentId) async {
+  try {
+    return await FirebaseFirestore.instance
+        .collection('organizations')
+        .doc(organizationId)
+        .collection('newentry')
+        .doc(documentId)
+        .collection('ownershare')
+        .get();
+  } catch (e) {
+    print('Error fetching owner share: $e');
+    throw e;
+  }
+}
 
 // Function to add owner to ownershare subcollection
 Future<void> _addOwnerToShare(String documentId) async {
@@ -1397,6 +1473,8 @@ Future<void> _addOwnerToShare(String documentId) async {
                         'phone': ownersDetails[ownerId]!['phone'],
                         'invest': ownersInvestments[ownerId],
                         'share': 0.0, // Initialize share to 0
+                        'profitShareAmount': 0.0, // Initialize profitShareAmount to 0
+                        'remainingAmountShare': 0.0, // Initialize remainingAmountShare to 0
                       });
                     } else {
                       // Show a SnackBar with a message indicating that the owner already exists
@@ -1409,7 +1487,9 @@ Future<void> _addOwnerToShare(String documentId) async {
                   }
 
                   // Recalculate owner share
-                  await _recalculateOwnerShare(documentId);
+                   await _recalculateOwnerShare(documentId);
+                 await _updateProfitShareAmount(documentId);
+                await _updateRemainingAmountShare(documentId);
 
                   // Update UI
                   setState(() {});
@@ -1429,6 +1509,7 @@ Future<void> _addOwnerToShare(String documentId) async {
     print('Error fetching owner details: $e');
   }
 }
+
 Future<void> _recalculateOwnerShare(String documentId) async {
   try {
     // Fetch owners from ownershare
@@ -1462,6 +1543,108 @@ Future<void> _recalculateOwnerShare(String documentId) async {
     }
   } catch (e) {
     print('Error recalculating owner share: $e');
+  }
+}
+
+  double _calculateShare(double invest, double totalInvest) {
+    if (totalInvest == 0) {
+      // To avoid division by zero
+      return 0.0;
+    }
+
+    return (invest / totalInvest) * 100;
+  }
+
+Future<void> _updateRemainingAmountShare(String documentId) async {
+  try {
+    // Fetch the remaining amount from the newentry document
+    DocumentSnapshot entrySnapshot = await FirebaseFirestore.instance
+        .collection('organizations')
+        .doc(organizationId)
+        .collection('newentry')
+        .doc(documentId)
+        .get();
+
+    double remainingAmount = (entrySnapshot['remainingamount'] as double?) ?? 0.0;
+
+    // Fetch owners from ownershare
+    QuerySnapshot ownersSnapshot = await FirebaseFirestore.instance
+        .collection('organizations')
+        .doc(organizationId)
+        .collection('newentry')
+        .doc(documentId)
+        .collection('ownershare')
+        .get();
+
+    // Calculate total share percentage
+    double totalSharePercentage = ownersSnapshot.docs
+        .map((owner) => (owner['share'] as double) ?? 0.0)
+        .fold(0.0, (sum, share) => sum + share);
+
+    // Update remaining amount share for each owner
+    for (var owner in ownersSnapshot.docs) {
+      double ownerShare = (owner['share'] as double?) ?? 0.0;
+      double ownerRemainingAmountShare = (ownerShare / 100) * remainingAmount;
+
+      // Update remaining amount share in Firestore
+      await FirebaseFirestore.instance
+          .collection('organizations')
+          .doc(organizationId)
+          .collection('newentry')
+          .doc(documentId)
+          .collection('ownershare')
+          .doc(owner.id)
+          .update({'remainingamountshare': ownerRemainingAmountShare});
+    }
+  } catch (e) {
+    print('Error updating remaining amount share: $e');
+  }
+}
+
+Future<void> _updateProfitShareAmount(String documentId) async {
+  try {
+    // Fetch the total profit from the newentry document
+    DocumentSnapshot entrySnapshot = await FirebaseFirestore.instance
+        .collection('organizations')
+        .doc(organizationId)
+        .collection('newentry')
+        .doc(documentId)
+        .get();
+
+    double totalProfit = (entrySnapshot['totalprofit'] as double?) ?? 0.0;
+
+    // Fetch owners from ownershare
+    QuerySnapshot ownersSnapshot = await FirebaseFirestore.instance
+        .collection('organizations')
+        .doc(organizationId)
+        .collection('newentry')
+        .doc(documentId)
+        .collection('ownershare')
+        .get();
+
+    // Calculate total investment
+    double totalInvestment = ownersSnapshot.docs
+        .map((owner) => (owner['invest'] as double?) ?? 0.0)
+        .fold(0.0, (sum, invest) => sum + invest);
+
+    // Update profit share amount for each owner
+    for (var owner in ownersSnapshot.docs) {
+      double invest = (owner['invest'] as double?) ?? 0.0;
+      double share = (invest / totalInvestment);
+      double profitShareAmount = totalProfit * share;
+
+      // Update profit share amount in Firestore
+      await FirebaseFirestore.instance
+          .collection('organizations')
+          .doc(organizationId)
+          .collection('newentry')
+          .doc(documentId)
+          .collection('ownershare')
+          .doc(owner.id)
+          .update({'profitshareamount': profitShareAmount});
+    }
+  } catch (e) {
+    print('Error updating profit share amount: $e');
   }
 }
 
