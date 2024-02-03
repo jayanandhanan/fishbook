@@ -12,12 +12,14 @@ class _WorkManagementPageState extends State<WorkManagementPage> {
   final TextEditingController dateController = TextEditingController();
   final TextEditingController workController = TextEditingController();
   final TextEditingController amountController = TextEditingController();
+  final TextEditingController selectedPaymentDateController = TextEditingController();
   final TextEditingController inchargeController = TextEditingController();
   final TextEditingController selectedDateController = TextEditingController();
-
+  final TextEditingController paidAmountController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   DateTime selectedDate = DateTime.now();
+  DateTime selectedPaymentDate = DateTime.now();
   String selectedInChargeType = '';
   String? selectedInChargeId;
   String? selectedInChargeName;
@@ -30,8 +32,10 @@ class _WorkManagementPageState extends State<WorkManagementPage> {
 
   List<String> paymentOptions = ['Paid', 'Not Paid'];
   List<String> progressOptions = ['Done', 'Pending'];
+  List<String> paymentModeOptions = ['Cash', 'UPI', 'Net Banking'];
   String selectedPaymentOption = 'Paid';
   String selectedProgressOption = 'Done';
+  String selectedModeOfPayment = 'Cash';
 
   String? filterByWork; // Filter by Work value
   DateTime? filterByDate; // Filter by Date value
@@ -47,12 +51,25 @@ class _WorkManagementPageState extends State<WorkManagementPage> {
   bool isPaymentFilterActive = false;
   bool isOwnerInChargeFilterActive = false;
   bool isCrewMemberInChargeFilterActive = false;
+  String? userRole; 
 
   @override
   void initState() {
     super.initState();
     _fetchOwnerDetails();
     _fetchCrewMemberDetails();
+    _fetchUserRole();
+  }
+  
+  Future<void> _fetchUserRole() async {
+    String? userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId != null) {
+      DocumentSnapshot userSnapshot =
+          await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      setState(() {
+        userRole = userSnapshot['role']; // Assign the user role to the variable
+      });
+    }
   }
 
   @override
@@ -165,6 +182,7 @@ class _WorkManagementPageState extends State<WorkManagementPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                if (userRole == 'Headowner')
                 ElevatedButton(
                   onPressed: () {
                 setState(() {
@@ -271,10 +289,15 @@ if (isCrewMemberInChargeFilterActive && filterByCrewMemberInCharge != null && fi
     return [
       DataColumn(label: Text('Date')),
       DataColumn(label: Text('Work')),
-      DataColumn(label: Text('Amount')),
-      DataColumn(label: Text('Payment')),
       DataColumn(label: Text('Progress')),
+      DataColumn(label: Text('Amount')),
+      DataColumn(label: Text('Paid Amount')),     
+      DataColumn(label: Text('Pending Amount')),
+      DataColumn(label: Text('Payment')),
+      DataColumn(label: Text('Payment Date')),
+      DataColumn(label: Text('Mode of Payment')), 
       DataColumn(label: Text('Incharge')),
+      if (userRole == 'Headowner')
       DataColumn(label: Text('Actions')),
     ];
   }
@@ -286,24 +309,30 @@ if (isCrewMemberInChargeFilterActive && filterByCrewMemberInCharge != null && fi
     DataRow row = DataRow(cells: [
       DataCell(Text(_formatDate((work['date'] as Timestamp).toDate()))),
       DataCell(Text(work['work'])),
-      DataCell(Text(work['amount'])),
-      DataCell(Text(work['payment'])),
       DataCell(Text(work['progress'])),
+      DataCell(Text(work['amount'])),
+      DataCell(Text(work['paidamount'])),
+      DataCell(Text(work['pendingamount'])),
+      DataCell(Text(work['payment'])),
+      DataCell(Text(_formatDate((work['paymentdate'] as Timestamp).toDate()))),
+      DataCell(Text(work['modeofpayment'])),
       DataCell(Text(work['incharge'])),
-      
+      if (userRole == 'Headowner')
       DataCell(
         Row(
           children: [
+            if (userRole == 'Headowner')
             IconButton(
               icon: Icon(Icons.edit),
               onPressed: () {
                 editWorkDialog(context, work);
               },
             ),
+            if (userRole == 'Headowner')
             IconButton(
               icon: Icon(Icons.delete),
               onPressed: () {
-                deleteWork(work);
+                deleteWork(context, work);
               },
             ),
           ],
@@ -320,7 +349,6 @@ if (isCrewMemberInChargeFilterActive && filterByCrewMemberInCharge != null && fi
     return DateFormat('dd-MM-yyyy').format(dateTime);
   }
 
-
   void _showAddWorkDialog() {
     showDialog(
       context: context,
@@ -329,6 +357,40 @@ if (isCrewMemberInChargeFilterActive && filterByCrewMemberInCharge != null && fi
       },
     );
   }
+
+Widget _buildPaymentDateField(BuildContext context) {
+  return TextFormField(
+    controller: selectedPaymentDateController, // Set the controller
+    readOnly: true, // Make the field read-only
+    decoration: InputDecoration(
+      labelText: 'Payment Date',
+      suffixIcon: IconButton(
+        onPressed: () async {
+          final DateTime? picked = await showDatePicker(
+            context: context,
+            initialDate: selectedPaymentDate, // Set initial date to selectedPaymentDate
+            firstDate: DateTime(2015, 8),
+            lastDate: DateTime(2101),
+          );
+          if (picked != null && picked != selectedPaymentDate) {
+            setState(() {
+              selectedPaymentDate = picked;
+              selectedPaymentDateController.text = DateFormat('dd-MM-yyyy').format(selectedPaymentDate);
+            });
+          }
+        },
+        icon: Icon(Icons.calendar_today),
+      ),
+    ),
+    validator: (value) {
+      if (value == null || value.isEmpty) {
+        return 'Please select a payment date';
+      }
+      return null;
+    },
+  );
+}
+
 
   Widget _buildAddWorkDialog(BuildContext context) {
     return AlertDialog(
@@ -341,9 +403,12 @@ if (isCrewMemberInChargeFilterActive && filterByCrewMemberInCharge != null && fi
             children: [
               _buildDateField(context),
               _buildTextField('Work', workController),
-              _buildTextField('Amount', amountController),
-              _buildDropdownField('Payment', paymentOptions, selectedPaymentOption),
               _buildDropdownField('Progress', progressOptions, selectedProgressOption),
+              _buildTextField('Amount', amountController),
+              _buildTextField('Paid Amount', paidAmountController),
+              _buildDropdownField('Payment', paymentOptions, selectedPaymentOption),
+              _buildPaymentDateField(context),            
+              _buildDropdownField('Mode of Payment', paymentModeOptions, selectedModeOfPayment),
               _buildInChargeSelection(),
             ],
           ),
@@ -366,54 +431,104 @@ if (isCrewMemberInChargeFilterActive && filterByCrewMemberInCharge != null && fi
     );
   }
 
-  void addWork(BuildContext context) async {
-    if (_formKey.currentState!.validate()) {
-      if (selectedInChargeName == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Please select an incharge before adding work.'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        return;
-      }
- setState(() {
-    isWorkFilterActive = false;
-    isDateFilterActive = false;
-    isProgressFilterActive = false;
-    isPaymentFilterActive = false;
-    isOwnerInChargeFilterActive = false;
-    isCrewMemberInChargeFilterActive = false; });
-      
+ void addWork(BuildContext context) async {
+  if (_formKey.currentState!.validate()) {
+    String amount = amountController.text;
+    String paidAmount = paidAmountController.text.isNotEmpty ? paidAmountController.text : '0';
+    // Calculate pending amount
+    String pendingAmount = (int.parse(amount) - int.parse(paidAmount)).toString();
+    if (selectedInChargeName == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Please select an incharge before adding work.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
 
-      // Add work to Firestore
+    setState(() {
+      isWorkFilterActive = false;
+      isDateFilterActive = false;
+      isProgressFilterActive = false;
+      isPaymentFilterActive = false;
+      isOwnerInChargeFilterActive = false;
+      isCrewMemberInChargeFilterActive = false;
+    });
+
+    // Add work to Firestore
+    final userSnapshot = await _getCurrentUser();
+    final organizationId = userSnapshot.data()?['organizationId'];
+    final workRef = FirebaseFirestore.instance.collection('organizations').doc(organizationId).collection('workmanagement');
+
+
+   // Check if the incharge was selected from the owner details
+    if (selectedInChargeType == 'Owner') {
+      // If selected from owner details, set the user field in Firestore as 'Owner'
       final userSnapshot = await _getCurrentUser();
       final organizationId = userSnapshot.data()?['organizationId'];
       final workRef = FirebaseFirestore.instance.collection('organizations').doc(organizationId).collection('workmanagement');
 
-      await workRef.doc(selectedInChargeId).set({
+      // Generate a new document ID
+      final newDocRef = workRef.doc();
+
+      // Add work entry with incharge ID and set user as 'Owner'
+      await newDocRef.set({
         'date': selectedDate,
         'work': workController.text,
         'amount': amountController.text,
+        'paymentdate': selectedPaymentDate,
+        'modeofpayment': selectedModeOfPayment,
+        'paidamount': paidAmount,
+        'pendingamount': pendingAmount,
         'payment': selectedPaymentOption,
         'progress': selectedProgressOption,
         'incharge': selectedInChargeName,
+        'inchargeid': selectedInChargeId, // Add the ID of the incharge
+        'user': 'Owner', // Set the user field as 'Owner'
       });
+    } else {
+      // If not selected from owner details, set the user field in Firestore as 'Crew Member'
+      final userSnapshot = await _getCurrentUser();
+      final organizationId = userSnapshot.data()?['organizationId'];
+      final workRef = FirebaseFirestore.instance.collection('organizations').doc(organizationId).collection('workmanagement');
 
-      // Clear input fields
-      setState(() {
-        dateController.clear();
-        workController.clear();
-        amountController.clear();
-        selectedPaymentOption = 'Paid';
-        selectedProgressOption = 'Done';
-        inchargeController.clear();
+      // Generate a new document ID
+      final newDocRef = workRef.doc();
+
+      // Add work entry with incharge ID and set user as 'Crew Member'
+      await newDocRef.set({
+        'date': selectedDate,
+        'work': workController.text,
+        'amount': amountController.text,
+        'paymentdate': selectedPaymentDate,
+        'modeofpayment': selectedModeOfPayment,
+        'paidamount': paidAmount,
+        'pendingamount': pendingAmount,
+        'payment': selectedPaymentOption,
+        'progress': selectedProgressOption,
+        'incharge': selectedInChargeName,
+        'inchargeid': selectedInChargeId, // Add the ID of the incharge
+        'user': 'Crew Member', // Set the user field as 'Crew Member'
       });
-
-      Navigator.of(context).pop();
     }
-  }
 
+    // Clear input fields
+    setState(() {
+      dateController.clear();
+      workController.clear();
+      selectedProgressOption = 'Done';
+      amountController.clear();
+      paidAmountController.clear();
+      selectedPaymentOption = 'Paid';
+      selectedPaymentDateController.clear();
+      selectedModeOfPayment = 'Cash';
+      inchargeController.clear();
+    });
+
+    Navigator.of(context).pop();
+  }
+}
 
   void _showFilterDialog(FilterType filterType) {
     showDialog(
@@ -544,7 +659,6 @@ Widget _buildFilterByProgressDialog(BuildContext context) {
   );
 }
 
-
  void _showPaymentFilterDialog() {
     showDialog(
       context: context,
@@ -637,30 +751,38 @@ Widget _buildFilterByProgressDialog(BuildContext context) {
     );
   }
 
-
-
-  Widget _buildDateField(BuildContext context) {
-    return TextButton(
-      onPressed: () async {
-        final DateTime? picked = await showDatePicker(
-          context: context,
-          initialDate: selectedDate,
-          firstDate: DateTime(2015, 8),
-          lastDate: DateTime(2101),
-        );
-        if (picked != null && picked != selectedDate) {
-          setState(() {
-            selectedDate = picked;
-            dateController.text = DateFormat('dd-MM-yyyy').format(selectedDate);
-          });
-        }
-      },
-      child: Text(
-        'Select Date',
-        style: TextStyle(color: Theme.of(context).primaryColor),
+ Widget _buildDateField(BuildContext context) {
+  return TextFormField(
+    controller: selectedDateController, // Set the controller
+    readOnly: true, // Make the field read-only
+    decoration: InputDecoration(
+      labelText: 'Date',
+      suffixIcon: IconButton(
+        onPressed: () async {
+          final DateTime? picked = await showDatePicker(
+            context: context,
+            initialDate: selectedDate,
+            firstDate: DateTime(2015, 8),
+            lastDate: DateTime(2101),
+          );
+          if (picked != null && picked != selectedDate) {
+            setState(() {
+              selectedDate = picked;
+              selectedDateController.text = DateFormat('dd-MM-yyyy').format(selectedDate);
+            });
+          }
+        },
+        icon: Icon(Icons.calendar_today),
       ),
-    );
-  }
+    ),
+    validator: (value) {
+      if (value == null || value.isEmpty) {
+        return 'Please select a date';
+      }
+      return null;
+    },
+  );
+}
 
   Widget _buildTextField(String label, TextEditingController controller) {
     return TextFormField(
@@ -788,7 +910,6 @@ Widget _buildFilterByProgressDialog(BuildContext context) {
     );
   }
 
-  
   Future<void> _fetchOwnerDetails() async {
     final userSnapshot = await _getCurrentUser();
     final organizationId = userSnapshot.data()?['organizationId'];
@@ -838,25 +959,52 @@ Widget _buildFilterByProgressDialog(BuildContext context) {
     throw Exception('User not found');
   }
 
-  void deleteWork(DocumentSnapshot work) async {
-    final userSnapshot = await _getCurrentUser();
-    final organizationId = userSnapshot.data()?['organizationId'];
-    final workRef = FirebaseFirestore.instance.collection('organizations').doc(organizationId).collection('workmanagement');
+void deleteWork(BuildContext context, DocumentSnapshot work) async {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text('Confirm Deletion'),
+        content: Text('Are you sure you want to delete this work entry?'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop(); // Close the dialog
 
-    await workRef.doc(work.id).delete();
+              final userSnapshot = await _getCurrentUser();
+              final organizationId = userSnapshot.data()?['organizationId'];
+              final workRef = FirebaseFirestore.instance.collection('organizations').doc(organizationId).collection('workmanagement');
 
-    setState(() {
-      // Handle deletion accordingly
-    });
-  }
+              // Delete the work entry
+              await workRef.doc(work.id).delete();
+
+              setState(() {
+                // Handle deletion accordingly
+              });
+            },
+            child: Text('Yes'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(); // Close the dialog
+            },
+            child: Text('No'),
+          ),
+        ],
+      );
+    },
+  );
+}
   
 void editWorkDialog(BuildContext context, DocumentSnapshot work) {
   selectedDateController.text = _formatDate((work['date'] as Timestamp).toDate());
   workController.text = work['work'];
-  amountController.text = work['amount'];
-  selectedPaymentOption = work['payment'];
   selectedProgressOption = work['progress'];
-  selectedInChargeType = work['incharge'];
+  amountController.text = work['amount'];
+  paidAmountController.text = work['paidamount'];
+  selectedPaymentOption = work['payment'];
+  selectedPaymentDateController.text = _formatDate((work['date'] as Timestamp).toDate());
+  selectedModeOfPayment = work['modeofpayment'];
   selectedInChargeId = work.id;
   selectedInChargeName = work['incharge'];
 
@@ -873,10 +1021,13 @@ void editWorkDialog(BuildContext context, DocumentSnapshot work) {
               children: [
                 _buildDateField(context),
                 _buildTextField('Work', workController),
-                _buildTextField('Amount', amountController),
-                _buildDropdownField('Payment', paymentOptions, selectedPaymentOption),
                 _buildDropdownField('Progress', progressOptions, selectedProgressOption),
-                _buildInChargeSelection(),
+                _buildTextField('Amount', amountController),
+                _buildTextField('Paid Amount', paidAmountController),
+                _buildDropdownField('Payment', paymentOptions, selectedPaymentOption),
+                _buildPaymentDateField(context),
+                _buildDropdownField('Mode of Payment', paymentModeOptions, selectedModeOfPayment),
+                
               ],
             ),
           ),
@@ -911,9 +1062,12 @@ void editWorkDialog(BuildContext context, DocumentSnapshot work) {
           children: [
             _buildDateField(context),
             _buildTextField('Work', workController),
-            _buildTextField('Amount', amountController),
-            _buildDropdownField('Payment', paymentOptions, selectedPaymentOption),
             _buildDropdownField('Progress', progressOptions, selectedProgressOption),
+            _buildTextField('Amount', amountController),
+            _buildTextField('Paid Amount', paidAmountController),
+            _buildDropdownField('Payment', paymentOptions, selectedPaymentOption),
+            _buildPaymentDateField(context),
+            _buildDropdownField('Mode of Payment', paymentModeOptions, selectedModeOfPayment),
             // Display the incharge value, disable the field
             TextFormField(
               controller: inchargeController,
@@ -941,9 +1095,12 @@ void editWorkDialog(BuildContext context, DocumentSnapshot work) {
   );
 }
 
-
   void updateWork(String workId) async {
     if (_formKey.currentState!.validate()) {
+         String amount = amountController.text;
+        String paidAmount = paidAmountController.text.isNotEmpty ? paidAmountController.text : '0';
+    // Calculate pending amount
+       String pendingAmount = (int.parse(amount) - int.parse(paidAmount)).toString();
       final userSnapshot = await _getCurrentUser();
       final organizationId = userSnapshot.data()?['organizationId'];
       final workRef = FirebaseFirestore.instance.collection('organizations').doc(organizationId).collection('workmanagement');
@@ -953,6 +1110,10 @@ void editWorkDialog(BuildContext context, DocumentSnapshot work) {
         'work': workController.text,
         'amount': amountController.text,
         'payment': selectedPaymentOption,
+        'modeofpayment': selectedModeOfPayment,
+        'paymentDate': selectedPaymentDate,
+       'paidamount': paidAmount,
+       'pendingamount': pendingAmount,
         'progress': selectedProgressOption,
         'incharge': selectedInChargeName,
       });
@@ -965,16 +1126,16 @@ setState(() {
     isCrewMemberInChargeFilterActive = false;
   });
 
-
       setState(() {
-        dateController.clear();
-        workController.clear();
-        amountController.clear();
-        selectedPaymentOption = 'Paid'; // Reset payment dropdown to default value
-        selectedProgressOption = 'Done'; // Reset progress dropdown to default value
-        inchargeController.clear();
-        selectedInChargeId = null;
-        selectedInChargeType = '';
+      dateController.clear();
+      workController.clear();
+      selectedProgressOption = 'Done';
+      amountController.clear();
+      paidAmountController.clear();
+      selectedPaymentOption = 'Paid';
+      selectedPaymentDateController.clear();
+      selectedModeOfPayment = 'Cash';
+      inchargeController.clear();
       });
 
       Navigator.of(context).pop();

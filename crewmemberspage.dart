@@ -15,6 +15,25 @@ class CrewMembersPageState extends State<CrewMembersPage> {
   bool isEditing = false;
   String? editingCrewMemberDetailId;
   List<String> selectedRows = [];
+  String? userRole; 
+
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserRole(); // Fetch user role when the widget initializes
+  }
+
+  Future<void> _fetchUserRole() async {
+    String? userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId != null) {
+      DocumentSnapshot userSnapshot =
+          await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      setState(() {
+        userRole = userSnapshot['role']; // Assign the user role to the variable
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +44,7 @@ class CrewMembersPageState extends State<CrewMembersPage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
+            if (userRole == 'Headowner')
             ElevatedButton(
               onPressed: () {
                 showDialog(
@@ -79,7 +99,8 @@ class CrewMembersPageState extends State<CrewMembersPage> {
       DataColumn(label: Text('Name')),
       DataColumn(label: Text('Phone')),
       DataColumn(label: Text('Email')),
-       DataColumn(label: Text('Type')),
+      DataColumn(label: Text('Type')),
+      if (userRole == 'Headowner')
       DataColumn(label: Text('Actions')),
     ];
   }
@@ -125,9 +146,11 @@ class CrewMembersPageState extends State<CrewMembersPage> {
               },
             ),
           ),
+          if (userRole == 'Headowner')
           DataCell(
             Row(
               children: [
+                if (userRole == 'Headowner')
                 IconButton(
                   icon: Icon(Icons.edit),
                   onPressed: () async {
@@ -136,13 +159,13 @@ class CrewMembersPageState extends State<CrewMembersPage> {
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('You cannot edit this owner.'),
+                          content: Text('You cannot edit this crewmember.'),
                         ),
                       );
                     }
                   },
                 ),
-                
+                if (userRole == 'Headowner')
                   IconButton(
                     icon: Icon(Icons.delete),
                     onPressed: () async {
@@ -151,7 +174,7 @@ class CrewMembersPageState extends State<CrewMembersPage> {
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('You cannot delete this owner.'),
+                            content: Text('You cannot delete this crewmember.'),
                           ),
                         );
                       }

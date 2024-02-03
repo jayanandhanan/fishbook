@@ -130,11 +130,14 @@ Widget _buildDatabaseScreen() {
                 children: [
                   Padding(
                     padding: const EdgeInsets.only(left: 16.0),
+                     child: Visibility(
+                     visible: role == 'Headowner',
                     child: ElevatedButton(
                       onPressed: () {
-                        _deleteNewEntryDocument(document.id, role);
+                        _showDeleteConfirmationDialog(context, document.id, role);
                       },
                       child: Text('Delete Entry'),
+                      ),
                     ),
                   ),
                 ],
@@ -162,6 +165,33 @@ Widget _buildDatabaseScreen() {
   );
 }
 
+void _showDeleteConfirmationDialog(BuildContext context, String documentId, String userRole) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text('Confirm Deletion'),
+        content: Text('Are you sure you want to delete this entry?'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              _deleteNewEntryDocument(documentId, userRole);
+              Navigator.of(context).pop(); // Close the dialog
+            },
+            child: Text('Delete'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
 void _deleteNewEntryDocument(String documentId, String userRole) async {
   if (userRole != 'Headowner') {
     print('You do not have access to delete the entire entry.');
@@ -169,16 +199,26 @@ void _deleteNewEntryDocument(String documentId, String userRole) async {
   }
 
   try {
-    // Delete the entire newentry document
-    await FirebaseFirestore.instance
+    final DocumentReference newEntryDocRef = FirebaseFirestore.instance
         .collection('organizations')
         .doc(organizationId)
         .collection('newentry')
-        .doc(documentId)
-        .delete();
+        .doc(documentId);
 
-    // Refresh the UI
-    setState(() {});
+    // Delete associated documents in the paymentdetails subcollection
+    QuerySnapshot paymentDetailsSnapshot = await FirebaseFirestore.instance
+        .collection('organizations')
+        .doc(organizationId)
+        .collection('paymentdetails')
+        .where('newentryid', isEqualTo: documentId)
+        .get();
+
+    for (DocumentSnapshot doc in paymentDetailsSnapshot.docs) {
+      await doc.reference.delete();
+    }
+
+    // Delete the newentry document itself
+    await newEntryDocRef.delete();
 
     // Optionally, you can show a success message or perform other actions
   } catch (e) {
@@ -186,6 +226,7 @@ void _deleteNewEntryDocument(String documentId, String userRole) async {
     // Handle error, show a snackbar, or any other appropriate action
   }
 }
+
 
   Widget _buildMainDocumentFields(QueryDocumentSnapshot document) {
     return Padding(
@@ -196,6 +237,7 @@ void _deleteNewEntryDocument(String documentId, String userRole) async {
           Row(
             children: [
               Text('Sailing Date: ${_formatDate(document['sailingdate'])}'),
+              if (role == 'Headowner')
               IconButton(
                 icon: Icon(Icons.edit),
                 onPressed: () => _editSailingDate(
@@ -206,6 +248,7 @@ void _deleteNewEntryDocument(String documentId, String userRole) async {
           Row(
             children: [
               Text('Return Date: ${_formatDate(document['returndate'])}'),
+              if (role == 'Headowner')
               IconButton(
                 icon: Icon(Icons.edit),
                 onPressed: () => _editReturnDate(
@@ -216,6 +259,7 @@ void _deleteNewEntryDocument(String documentId, String userRole) async {
           Row(
             children: [
               Text('Month Considered: ${document['monthconsidered']}'),
+              if (role == 'Headowner')
               IconButton(
                 icon: Icon(Icons.edit),
                 onPressed: () => _editMonthConsidered(
@@ -224,7 +268,7 @@ void _deleteNewEntryDocument(String documentId, String userRole) async {
             ],
           ),
           Text('Total Profit: ${document['totalprofit']}'),
-          Text('Remaining Amount After Crewmember Salary: ${document['remainingamount']}'),
+          Text('Remaining Amount After Giving Crewmembers Salary: ${document['remainingamount']}'),
         ],
       ),
     );
@@ -239,6 +283,7 @@ void _deleteNewEntryDocument(String documentId, String userRole) async {
         Row(
           children: [
             Text(_formatDate(date), style: TextStyle(fontWeight: FontWeight.bold)),
+            if (role == 'Headowner')
             IconButton(
               icon: Icon(Icons.edit),
               onPressed: editFunction,
@@ -258,6 +303,7 @@ void _deleteNewEntryDocument(String documentId, String userRole) async {
         Row(
           children: [
             Text(monthConsidered, style: TextStyle(fontWeight: FontWeight.bold)),
+            if (role == 'Headowner')
             IconButton(
               icon: Icon(Icons.edit),
               onPressed: editFunction,
@@ -485,6 +531,7 @@ Widget _buildRevenueExpenseTable(String documentId) {
                 DataColumn(label: Text('Revenue Amount')),
                 DataColumn(label: Text('Expense Name')),
                 DataColumn(label: Text('Expense Amount')),
+                if (role == 'Headowner')
                 DataColumn(label: Text('Actions')),
               ],
               rows: _buildRevenueExpenseRows(
@@ -496,16 +543,19 @@ Widget _buildRevenueExpenseTable(String documentId) {
       SizedBox(height: 10),
       Padding(
         padding: const EdgeInsets.only(left: 16.0),
+         child: Visibility(
+        visible: role == 'Headowner',
         child: ElevatedButton(
           onPressed: () => _addRevenueExpense(documentId),
           child: Text('Add Revenue/Expense'),
+        ),
         ),
       ),
     ],
   );
 }
 
-  List<DataRow> _buildRevenueExpenseRows(String documentId,
+List<DataRow> _buildRevenueExpenseRows(String documentId,
       QuerySnapshot revenue, QuerySnapshot expense) {
     List<DataRow> rows = [];
 
@@ -525,9 +575,11 @@ Widget _buildRevenueExpenseTable(String documentId) {
           DataCell(Text(revenueAmount)),
           DataCell(Text(expenseName)),
           DataCell(Text(expenseAmount)),
+          if (role == 'Headowner')
           DataCell(
             Row(
               children: [
+                if (role == 'Headowner')
                 IconButton(
                   icon: Icon(Icons.edit),
                   onPressed: () {
@@ -535,6 +587,7 @@ Widget _buildRevenueExpenseTable(String documentId) {
                         documentId, revenueDoc, expenseDoc,role);
                   },
                 ),
+                if (role == 'Headowner')
                 IconButton(
                   icon: Icon(Icons.delete),
                   onPressed: () {
@@ -563,7 +616,7 @@ Widget _buildRevenueExpenseTable(String documentId) {
     return rows;
   }
 
-  void _addRevenueExpense(String documentId) {
+void _addRevenueExpense(String documentId) {
     TextEditingController revenueController =
         TextEditingController();
     TextEditingController expenseNameController =
@@ -634,7 +687,9 @@ Widget _buildRevenueExpenseTable(String documentId) {
                 Navigator.pop(context);
 
                 // Reload the data after adding
-                                setState(() {});
+                      if (mounted) { // Check if the widget is still mounted
+        setState(() {});
+      }             
 
                 // Update totalprofit after adding
                 await _updateTotalProfit(documentId);
@@ -656,11 +711,11 @@ void _editRevenueExpense(String documentId, DocumentSnapshot revenue,
   }
 
   TextEditingController revenueController =
-      TextEditingController(text: revenue['amount']?.toString() ?? '');
+      TextEditingController(text: revenue['amount']?.toString() ?? '0');
   TextEditingController expenseNameController =
-      TextEditingController(text: expense['expensename']?.toString() ?? '');
+      TextEditingController(text: expense['expensename']?.toString() ?? null);
   TextEditingController expenseAmountController = TextEditingController(
-      text: expense['expenseamount']?.toString() ?? '');
+      text: expense['expenseamount']?.toString() ?? '0');
 
   showDialog(
     context: context,
@@ -693,6 +748,14 @@ void _editRevenueExpense(String documentId, DocumentSnapshot revenue,
           TextButton(
             onPressed: () async {
               try {
+                // Parse revenue amount to double, set to 0 if empty
+                double parsedRevenueAmount =
+                    double.tryParse(revenueController.text) ?? 0.0;
+
+                // Parse expense amount to double, set to 0 if empty
+                double parsedExpenseAmount =
+                    double.tryParse(expenseAmountController.text) ?? 0.0;
+
                 // Update Firestore with edited data
                 await FirebaseFirestore.instance
                     .collection('organizations')
@@ -702,7 +765,7 @@ void _editRevenueExpense(String documentId, DocumentSnapshot revenue,
                     .collection('revenue')
                     .doc(revenue.id)
                     .update({
-                  'amount': double.parse(revenueController.text),
+                  'amount': parsedRevenueAmount,
                 });
 
                 await FirebaseFirestore.instance
@@ -714,14 +777,15 @@ void _editRevenueExpense(String documentId, DocumentSnapshot revenue,
                     .doc(expense.id)
                     .update({
                   'expensename': expenseNameController.text,
-                  'expenseamount': double.parse(expenseAmountController.text),
+                  'expenseamount': parsedExpenseAmount,
                 });
 
                 Navigator.pop(context);
 
                 // Reload the data after editing
-                setState(() {});
-
+                    if (mounted) { // Check if the widget is still mounted
+        setState(() {});
+      }
                 // Update totalprofit after editing
                 await _updateTotalProfit(documentId);
                 _updateRemainingAmount(documentId);
@@ -738,44 +802,72 @@ void _editRevenueExpense(String documentId, DocumentSnapshot revenue,
   );
 }
 
- void _deleteRevenueExpense(String documentId, DocumentSnapshot revenue,
+
+void _deleteRevenueExpense(String documentId, DocumentSnapshot revenue,
     DocumentSnapshot expense, String userRole) async {
   if (userRole != 'Headowner') {
     print('You do not have access to delete revenue and expense.');
     return;
   }
 
-  try {
-    // Delete the revenue document
-    await FirebaseFirestore.instance
-        .collection('organizations')
-        .doc(organizationId)
-        .collection('newentry')
-        .doc(documentId)
-        .collection('revenue')
-        .doc(revenue.id)
-        .delete();
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text('Confirm Deletion'),
+        content: Text('Are you sure you want to delete this revenue and expense entries?'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Close the dialog
+            },
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              try {
+                // Delete the revenue document
+                await FirebaseFirestore.instance
+                    .collection('organizations')
+                    .doc(organizationId)
+                    .collection('newentry')
+                    .doc(documentId)
+                    .collection('revenue')
+                    .doc(revenue.id)
+                    .delete();
 
-    // Delete the expense document
-    await FirebaseFirestore.instance
-        .collection('organizations')
-        .doc(organizationId)
-        .collection('newentry')
-        .doc(documentId)
-        .collection('expense')
-        .doc(expense.id)
-        .delete();
+                // Delete the expense document
+                await FirebaseFirestore.instance
+                    .collection('organizations')
+                    .doc(organizationId)
+                    .collection('newentry')
+                    .doc(documentId)
+                    .collection('expense')
+                    .doc(expense.id)
+                    .delete();
 
-    // Reload the data after deleting
-    setState(() {});
+                Navigator.pop(context); // Close the dialog
 
-    // Update totalprofit after deleting
-    await _updateTotalProfit(documentId);
-    _updateRemainingAmount(documentId);
-  } catch (e) {
-    print('Error deleting revenue and expense: $e');
-    // Handle error, show a snackbar, or any other appropriate action
-  }
+                // Reload the data after deleting
+                    if (mounted) { // Check if the widget is still mounted
+        setState(() {});
+      }
+
+                // Update totalprofit after deleting
+                await _updateTotalProfit(documentId);
+                await _updateRemainingAmount(documentId);
+
+              } catch (e) {
+                print('Error deleting revenue and expense: $e');
+                // Handle error, show a snackbar, or any other appropriate action
+              }
+            },
+            child: Text('Delete'),
+          ),
+        ],
+      );
+    },
+  );
 }
 
   Future<List<QuerySnapshot>> _fetchRevenueExpenseSubcollections(
@@ -830,6 +922,7 @@ Widget _buildCrewMembersTable(String documentId) {
                 DataColumn(label: Text('Email')),
                 DataColumn(label: Text('Phone')),
                 DataColumn(label: Text('Amount')),
+                if (role == 'Headowner')
                 DataColumn(label: Text('Actions')),
               ],
               rows: _buildCrewMembersRows(documents,documentId),
@@ -840,24 +933,27 @@ Widget _buildCrewMembersTable(String documentId) {
       SizedBox(height: 20), // Add spacing between DataTable and button
       Padding(
         padding: const EdgeInsets.only(left: 16.0),
+         child: Visibility(
+        visible: role == 'Headowner',
         child: ElevatedButton(
           onPressed: () => _addCrewMemberToSalary(documentId),
           
           child: Text('Add Crew Member'),
+        ),
         ),
       ),
     ],
   );
 }
 
-List<DataRow> _buildCrewMembersRows(List<DocumentSnapshot> documents,documentId) {
+List<DataRow> _buildCrewMembersRows(List<DocumentSnapshot> documents, String documentId) {
   List<DataRow> rows = [];
 
   documents.forEach((doc) {
-    String name = doc['name'];
-    String email = doc['email'];
-    String phone = doc['phone'];
-    double amount = (doc['amount'] as num).toDouble(); // Parse as double
+    String name = doc['name'] ?? 'N/A'; // Handle null name
+    String email = doc['email'] ?? 'N/A'; // Handle null email
+    String phone = doc['phone'] ?? 'N/A'; // Handle null phone
+    double amount = (doc['amount'] as num?)?.toDouble() ?? 0.0; // Parse as double and handle null amount
 
     // Add a DataRow for each crew member
     DataRow row = DataRow(cells: [
@@ -865,21 +961,24 @@ List<DataRow> _buildCrewMembersRows(List<DocumentSnapshot> documents,documentId)
       DataCell(Text(email)),
       DataCell(Text(phone)),
       DataCell(Text(amount.toString())),
+      if (role == 'Headowner')
       DataCell(Row(
         // Create a row for action buttons
         children: [
+          if (role == 'Headowner')
           IconButton(
             icon: Icon(Icons.edit),
             onPressed: () {
               // Implement edit functionality
-              _editCrewMemberSalary(doc.reference, role,documentId); // Pass the document ID for editing
+              _editCrewMemberSalary(doc.reference, role, documentId); // Pass the document ID for editing
             },
           ),
+          if (role == 'Headowner')
           IconButton(
             icon: Icon(Icons.delete),
             onPressed: () {
               // Implement delete functionality
-              _deleteCrewMemberSalary(doc.reference, role,documentId); // Pass the document ID for deletion
+              _deleteCrewMemberSalary(doc.reference, role, documentId); // Pass the document ID for deletion
             },
           ),
         ],
@@ -892,7 +991,7 @@ List<DataRow> _buildCrewMembersRows(List<DocumentSnapshot> documents,documentId)
   return rows;
 }
 
-void _editCrewMemberSalary(DocumentReference documentReference, String userRole,String documentId) {
+void _editCrewMemberSalary(DocumentReference documentReference, String userRole, String documentId) {
   if (userRole != 'Headowner') {
     print('You do not have access to edit crew member salaries.');
     return;
@@ -925,10 +1024,33 @@ void _editCrewMemberSalary(DocumentReference documentReference, String userRole,
           TextButton(
             onPressed: () async {
               try {
-                double newAmount = double.parse(amountController.text);
+                // Check if the text field is empty, set newAmount to 0 if it's empty
+                double newAmount = amountController.text.isNotEmpty ? double.parse(amountController.text) : 0.0;
 
-                // Update the amount field in Firestore
+                // Update the amount field in Firestore for salarytocrewmembers
                 await documentReference.update({'amount': newAmount});
+
+                // Fetch corresponding documents from paymentdetails
+                QuerySnapshot paymentDetailsSnapshot = await FirebaseFirestore.instance
+                    .collection('organizations')
+                    .doc(organizationId)
+                    .collection('paymentdetails')
+                    .get();
+
+                // Iterate through each payment detail document
+                for (var paymentDetailDoc in paymentDetailsSnapshot.docs) {
+                  String inchargeId = paymentDetailDoc['inchargeid'];
+                  String newEntryId = paymentDetailDoc['newentryid'];
+
+                  if (inchargeId == documentReference.id && newEntryId == documentId) {
+                    // Calculate pending amount
+                    double paidAmount = double.tryParse(paymentDetailDoc['paidamount'] ?? '0.0') ?? 0.0;
+                    double pendingAmount = newAmount - paidAmount;
+
+                    // Update pending amount in the paymentdetails document
+                    await paymentDetailDoc.reference.update({'amount': newAmount.toString(), 'pendingamount': pendingAmount.toString()});
+                  }
+                }
 
                 // Show a success message
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -937,12 +1059,14 @@ void _editCrewMemberSalary(DocumentReference documentReference, String userRole,
                   ),
                 );
 
+                Navigator.pop(context); // Close the dialog
+
                 await _updateRemainingAmount(documentId);
                 // Refresh the UI
-                setState(() {});
+                if (mounted) {
+                  setState(() {});
+                }
 
-                Navigator.pop(context); // Close the dialog
-                
               } catch (e) {
                 print('Error updating crew member salary: $e');
                 // Show an error message
@@ -961,6 +1085,8 @@ void _editCrewMemberSalary(DocumentReference documentReference, String userRole,
   );
 }
 
+
+
 void _deleteCrewMemberSalary(DocumentReference documentReference, String userRole, String documentId) {
   if (userRole != 'Headowner') {
     print('You do not have access to delete crew member salary entries.');
@@ -976,15 +1102,31 @@ void _deleteCrewMemberSalary(DocumentReference documentReference, String userRol
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(context); // Close the dialog
             },
             child: Text('Cancel'),
           ),
           TextButton(
             onPressed: () async {
               try {
-                // Delete the document from Firestore
+                // Delete the document from Firestore for salarytocrewmembers
                 await documentReference.delete();
+
+                // Delete the corresponding documents from paymentdetails
+                QuerySnapshot paymentDetailsSnapshot = await FirebaseFirestore.instance
+                    .collection('organizations')
+                    .doc(organizationId)
+                    .collection('paymentdetails')
+                    .get();
+
+                for (var paymentDetailDoc in paymentDetailsSnapshot.docs) {
+                  String newEntryId = paymentDetailDoc['newentryid'];
+                  String inchargeId = paymentDetailDoc['inchargeid'];
+
+                  if (newEntryId == documentId && inchargeId == documentReference.id) {
+                    await paymentDetailDoc.reference.delete();
+                  }
+                }
 
                 // Show a success message
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -993,14 +1135,14 @@ void _deleteCrewMemberSalary(DocumentReference documentReference, String userRol
                   ),
                 );
 
+                Navigator.pop(context); // Close the dialog
                 // Update the remaining amount
-               await _updateRemainingAmount(documentId);
+                await _updateRemainingAmount(documentId);
 
                 // Refresh the UI
-                setState(() {});
-
-                Navigator.pop(context); // Close the dialog
-               
+                    if (mounted) { // Check if the widget is still mounted
+        setState(() {});
+      }
               } catch (e) {
                 print('Error deleting crew member salary entry: $e');
                 // Show an error message
@@ -1034,11 +1176,13 @@ Future<QuerySnapshot> _fetchCrewMembersSalarySubcollection(String documentId) as
   }
 }
 
-// Function to add crew member to salarytocrewmembers subcollection
 Future<void> _addCrewMemberToSalary(String documentId) async {
   List<String> selectedCrewMembers = [];
   Map<String, double> crewMembersAmount = {};
   Map<String, Map<String, dynamic>> crewMembersDetails = {};
+
+  // Get the current datetime
+  DateTime currentDate = DateTime.now();
 
   try {
     // Fetch crew members' details (name, email, phone) from the subcollection
@@ -1049,7 +1193,6 @@ Future<void> _addCrewMemberToSalary(String documentId) async {
         .get();
 
     // Show dialog to select crew members and enter amounts
-    // ignore: use_build_context_synchronously
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -1091,13 +1234,15 @@ Future<void> _addCrewMemberToSalary(String documentId) async {
                   ],
                   // Input field for amount
                   TextField(
-                    decoration: InputDecoration(labelText: 'Amount'),
-                    keyboardType: TextInputType.number,
-                    onChanged: (value) {
-                      // Update amounts for selected crew members
-                      for (var crewMemberId in selectedCrewMembers) {
-                        crewMembersAmount[crewMemberId] = double.parse(value);
-                      }
+  decoration: InputDecoration(labelText: 'Amount'),
+  keyboardType: TextInputType.number,
+  onChanged: (value) {
+    // Update amounts for selected crew members
+    for (var crewMemberId in selectedCrewMembers) {
+      // Check if value is null or empty, if so, set amount to 0.0
+      double amount = (value != null && value.isNotEmpty) ? double.parse(value) : 0.0;
+      crewMembersAmount[crewMemberId] = amount;
+    }
                     },
                   ),
                 ],
@@ -1113,50 +1258,90 @@ Future<void> _addCrewMemberToSalary(String documentId) async {
             ),
             TextButton(
               onPressed: () async {
-                // Check if crew member already exists in salarytocrewmembers
-                QuerySnapshot existingMembersSnapshot = await FirebaseFirestore.instance
-                    .collection('organizations')
-                    .doc(organizationId)
-                    .collection('newentry')
-                    .doc(documentId)
-                    .collection('salarytocrewmembers')
-                    .where(FieldPath.documentId, whereIn: selectedCrewMembers)
-                    .get();
+                try {
+                  // Check if crew members already exist in salarytocrewmembers
+                  QuerySnapshot existingMembersSnapshot = await FirebaseFirestore.instance
+                      .collection('organizations')
+                      .doc(organizationId)
+                      .collection('newentry')
+                      .doc(documentId)
+                      .collection('salarytocrewmembers')
+                      .where(FieldPath.documentId, whereIn: selectedCrewMembers)
+                      .get();
 
-                List<String> existingMembersIds =
-                    existingMembersSnapshot.docs.map((e) => e.id).toList();
+                  List<String> existingMembersIds =
+                      existingMembersSnapshot.docs.map((e) => e.id).toList();
 
-                // Add selected crew members to salarytocrewmembers
-                for (var crewMemberId in selectedCrewMembers) {
-                  if (!existingMembersIds.contains(crewMemberId)) {
-                    await FirebaseFirestore.instance
-                        .collection('organizations')
-                        .doc(organizationId)
-                        .collection('newentry')
-                        .doc(documentId)
-                        .collection('salarytocrewmembers')
-                        .doc(crewMemberId)
-                        .set({
-                      'name': crewMembersDetails[crewMemberId]!['name'],
-                      'email': crewMembersDetails[crewMemberId]!['email'],
-                      'phone': crewMembersDetails[crewMemberId]!['phone'],
-                      'amount': crewMembersAmount[crewMemberId],
-                    });
-                    
-                  }else {
-    // Show a SnackBar with a message indicating that the crew member already exists
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Crew member with ID $crewMemberId already exists in salarytocrewmembers'),
-      ),
-    );
-  }
+                  for (var crewMemberId in selectedCrewMembers) {
+                    if (!existingMembersIds.contains(crewMemberId)) {
+                      // Generate unique ID for paymentdetails document
+                      String paymentDetailId = FirebaseFirestore.instance.collection('organizations').doc().id;
+
+                      // Add to salarytocrewmembers subcollection
+                      await FirebaseFirestore.instance
+                          .collection('organizations')
+                          .doc(organizationId)
+                          .collection('newentry')
+                          .doc(documentId)
+                          .collection('salarytocrewmembers')
+                          .doc(crewMemberId)
+                          .set({
+                        'name': crewMembersDetails[crewMemberId]!['name'],
+                        'email': crewMembersDetails[crewMemberId]!['email'],
+                        'phone': crewMembersDetails[crewMemberId]!['phone'],
+                        'amount': crewMembersAmount[crewMemberId],
+                      });
+
+                      // Check if paymentdetails document already exists
+                      QuerySnapshot paymentDetailsSnapshot = await FirebaseFirestore.instance
+                          .collection('organizations')
+                          .doc(organizationId)
+                          .collection('paymentdetails')
+                          .where('newentryid', isEqualTo: documentId)
+                          .where('inchargeid', isEqualTo: crewMemberId)
+                          .get();
+
+                      if (paymentDetailsSnapshot.docs.isEmpty) {
+                        // Add to paymentdetails subcollection with inchargeid and newentryid
+                        await FirebaseFirestore.instance
+                            .collection('organizations')
+                            .doc(organizationId)
+                            .collection('paymentdetails')
+                            .doc(paymentDetailId)
+                            .set({
+                          'name': crewMembersDetails[crewMemberId]!['name'],
+                          'email': crewMembersDetails[crewMemberId]!['email'],
+                          'phone': crewMembersDetails[crewMemberId]!['phone'],
+                          'amount': crewMembersAmount[crewMemberId],
+                          'user': 'Crew Member',
+                          'payment': 'Not Paid',
+                          'paidamount':'0.0',
+                          'pendingamount':'0.0',
+                          'modeofpayment':'Cash',
+                          'date': Timestamp.fromDate(currentDate),
+                          'inchargeid': crewMemberId,
+                          'newentryid': documentId,
+                        });
+                      }
+                    } else {
+                      // Crew member already exists in salarytocrewmembers
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Crew member with ID $crewMemberId already exists in salarytocrewmembers'),
+                        ),
+                      );
+                    }
+                  }
+
+                  Navigator.pop(context);
+                  await _updateRemainingAmount(documentId);
+                  // Update UI
+                      if (mounted) { // Check if the widget is still mounted
+        setState(() {});
+      }
+                } catch (e) {
+                  print('Error adding crew members to salary: $e');
                 }
-               await _updateRemainingAmount(documentId);
-                // Update UI
-                setState(() {});
-
-                Navigator.pop(context);
               },
               child: Text('Add'),
             ),
@@ -1201,6 +1386,7 @@ Widget _buildOwnersShareTable(String documentId) {
                     DataColumn(label: Text('Share')),
                     DataColumn(label: Text('Profit Amount Share')),
                     DataColumn(label: Text('Remaining Amount Share')),
+                    if (role == 'Headowner')
                     DataColumn(label: Text('Actions')), // New column for actions
                   ],
                   rows: _buildOwnersShareRows(documents, documentId),
@@ -1211,11 +1397,14 @@ Widget _buildOwnersShareTable(String documentId) {
           ],
         ),
         Padding(
-          padding: const EdgeInsets.only(left: 16.0), // Adjust the left padding as needed
+          padding: const EdgeInsets.only(right: 16.0), // Adjust the left padding as needed
+           child: Visibility(
+          visible: role == 'Headowner',
           child: ElevatedButton(
             onPressed: () => _addOwnerToShare(documentId),
             child: Text('Add Owner'),
           ),
+           ),
         ),
       ],
     ),
@@ -1230,10 +1419,10 @@ List<DataRow> _buildOwnersShareRows(List<QueryDocumentSnapshot> documents, Strin
     String name = document['name'] ?? '';
     String email = document['email'] ?? '';
     String phone = document['phone'] ?? '';
-    double invest = (document['invest'] ?? 0).toDouble(); // Parse as double
-    double share = (document['share'] ?? 0).toDouble(); // Parse as double
-    double profitShareAmount = (document['profitshareamount'] ?? 0).toDouble();
-    double remainingAmountShare = (document['remainingamountshare'] ?? 0).toDouble();
+    double invest = (document['invest'] as num?)?.toDouble() ?? 0.0; // Handle null invest
+    double share = (document['share'] as num?)?.toDouble() ?? 0.0; // Handle null share
+    double profitShareAmount = (document['profitshareamount'] as num?)?.toDouble() ?? 0.0; // Handle null profitshareamount
+    double remainingAmountShare = (document['remainingamountshare'] as num?)?.toDouble() ?? 0.0; // Handle null remainingamountshare
     rows.add(DataRow(cells: [
       DataCell(Text(name)),
       DataCell(Text(email)),
@@ -1242,12 +1431,15 @@ List<DataRow> _buildOwnersShareRows(List<QueryDocumentSnapshot> documents, Strin
       DataCell(Text(share.toString())),
       DataCell(Text(profitShareAmount.toString())),
       DataCell(Text(remainingAmountShare.toString())),
+      if (role == 'Headowner')
       DataCell(Row(
         children: [
+          if (role == 'Headowner')
           IconButton(
             icon: Icon(Icons.edit),
             onPressed: () => _editOwnerShare(documentId, ownerId, invest, role),
           ),
+          if (role == 'Headowner')
           IconButton(
             icon: Icon(Icons.delete),
             onPressed: () => _deleteOwnerShare(documentId, ownerId, role),
@@ -1260,115 +1452,47 @@ List<DataRow> _buildOwnersShareRows(List<QueryDocumentSnapshot> documents, Strin
   return rows;
 }
 
-Future<void> _editOwnerShare(String documentId, String ownerId, double currentInvest, String userRole) async {
-  if (userRole != 'Headowner') {
-    print('You do not have access to edit owner shares.');
-    return;
-  }
-
-  TextEditingController investController = TextEditingController(text: currentInvest.toString());
-
-  await showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        title: Text('Edit Investment'),
-        content: TextField(
-          controller: investController,
-          decoration: InputDecoration(labelText: 'Investment'),
-          keyboardType: TextInputType.number,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            child: Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              double newInvest = double.parse(investController.text);
-
-              try {
-                await FirebaseFirestore.instance
-                    .collection('organizations')
-                    .doc(organizationId)
-                    .collection('newentry')
-                    .doc(documentId)
-                    .collection('ownershare')
-                    .doc(ownerId)
-                    .update({'invest': newInvest});
-
-                // Recalculate share
-                 await _recalculateOwnerShare(documentId);
-                 await _updateProfitShareAmount(documentId);
-                 await _updateRemainingAmountShare(documentId);
-
-                // Refresh the UI
-                setState(() {});
-
-                Navigator.pop(context);
-              } catch (e) {
-                print('Error editing owner share: $e');
-              }
-            },
-            child: Text('Save'),
-          ),
-        ],
-      );
-    },
-  );
-}
-
-Future<void> _deleteOwnerShare(String documentId, String ownerId, String userRole) async {
-  if (userRole != 'Headowner') {
-    print('You do not have access to delete owner shares.');
-    return;
-  }
-
+Future<void> _deletePaymentDetails(String ownerId, String documentId) async {
   try {
-    await FirebaseFirestore.instance
+    // Reference to the paymentdetails collection
+    CollectionReference paymentDetailsCollection = FirebaseFirestore.instance
         .collection('organizations')
         .doc(organizationId)
-        .collection('newentry')
-        .doc(documentId)
-        .collection('ownershare')
-        .doc(ownerId)
-        .delete();
+        .collection('paymentdetails');
 
-    // Recalculate share
-   await _recalculateOwnerShare(documentId);
-   await _updateProfitShareAmount(documentId);
-   await _updateRemainingAmountShare(documentId);
+    // Get all documents from the paymentdetails collection
+    QuerySnapshot paymentDetailsSnapshot = await paymentDetailsCollection.get();
 
-    // Refresh the UI
-    setState(() {});
+    // Iterate through each document
+    for (QueryDocumentSnapshot paymentDetailDoc in paymentDetailsSnapshot.docs) {
+      // Explicitly cast the data to Map<String, dynamic>
+      Map<String, dynamic> paymentDetailsData = paymentDetailDoc.data() as Map<String, dynamic>;
 
+      if (paymentDetailsData.containsKey('newentryid') && paymentDetailsData.containsKey('inchargeid')) {
+        String? newEntryId = paymentDetailsData['newentryid'];
+        String? inchargeId = paymentDetailsData['inchargeid'];
+
+        // Check if the newentryid matches the documentId and inchargeid matches the ownerId
+        if (newEntryId == documentId && inchargeId == ownerId) {
+          // Delete the document
+          await paymentDetailDoc.reference.delete();
+        }
+      }
+    }
+
+    print('Payment details documents deleted successfully');
   } catch (e) {
-    print('Error deleting owner share: $e');
+    print('Error deleting payment details: $e');
   }
 }
 
-Future<QuerySnapshot> _fetchOwnerShareSubcollection(String documentId) async {
-  try {
-    return await FirebaseFirestore.instance
-        .collection('organizations')
-        .doc(organizationId)
-        .collection('newentry')
-        .doc(documentId)
-        .collection('ownershare')
-        .get();
-  } catch (e) {
-    print('Error fetching owner share: $e');
-    throw e;
-  }
-}
-
-// Function to add owner to ownershare subcollection
 Future<void> _addOwnerToShare(String documentId) async {
   List<String> selectedOwners = [];
   Map<String, double> ownersInvestments = {};
   Map<String, Map<String, dynamic>> ownersDetails = {};
+
+  // Get the current datetime
+  DateTime currentDate = DateTime.now();
 
   try {
     // Fetch owners' details (name, email, phone) from the subcollection
@@ -1379,7 +1503,6 @@ Future<void> _addOwnerToShare(String documentId) async {
         .get();
 
     // Show dialog to select owners and enter investments
-    // ignore: use_build_context_synchronously
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -1420,14 +1543,16 @@ Future<void> _addOwnerToShare(String documentId) async {
                     ),
                   ],
                   // Input field for investment
-                  TextField(
-                    decoration: InputDecoration(labelText: 'Investment'),
-                    keyboardType: TextInputType.number,
-                    onChanged: (value) {
-                      // Update investments for selected owners
-                      for (var ownerId in selectedOwners) {
-                        ownersInvestments[ownerId] = double.parse(value);
-                      }
+               TextField(
+  decoration: InputDecoration(labelText: 'Investment'),
+  keyboardType: TextInputType.number,
+  onChanged: (value) {
+    // Update investments for selected owners
+    for (var ownerId in selectedOwners) {
+      // Check if value is null or empty and set it to 0 if so
+      double investment = (value != null && value.isNotEmpty) ? double.parse(value) : 0.0;
+      ownersInvestments[ownerId] = investment;
+    }
                     },
                   ),
                 ],
@@ -1444,22 +1569,26 @@ Future<void> _addOwnerToShare(String documentId) async {
             TextButton(
               onPressed: () async {
                 try {
-                  // Check if owner already exists in ownershare
-                  QuerySnapshot existingOwnersSnapshot = await FirebaseFirestore.instance
-                      .collection('organizations')
-                      .doc(organizationId)
-                      .collection('newentry')
-                      .doc(documentId)
-                      .collection('ownershare')
-                      .where(FieldPath.documentId, whereIn: selectedOwners)
-                      .get();
-
-                  List<String> existingOwnersIds =
-                      existingOwnersSnapshot.docs.map((e) => e.id).toList();
-
-                  // Add selected owners to ownershare
                   for (var ownerId in selectedOwners) {
-                    if (!existingOwnersIds.contains(ownerId)) {
+                    // Check if the owner already exists in ownershare
+                    QuerySnapshot existingOwnerSnapshot = await FirebaseFirestore.instance
+                        .collection('organizations')
+                        .doc(organizationId)
+                        .collection('newentry')
+                        .doc(documentId)
+                        .collection('ownershare')
+                        .where(FieldPath.documentId, isEqualTo: ownerId)
+                        .get();
+
+                    if (existingOwnerSnapshot.docs.isEmpty) {
+                      // Generate unique document ID for paymentdetails
+                      DocumentReference paymentDocRef = FirebaseFirestore.instance
+                          .collection('organizations')
+                          .doc(organizationId)
+                          .collection('paymentdetails')
+                          .doc();
+
+                      // Add to ownershare subcollection
                       await FirebaseFirestore.instance
                           .collection('organizations')
                           .doc(organizationId)
@@ -1473,8 +1602,27 @@ Future<void> _addOwnerToShare(String documentId) async {
                         'phone': ownersDetails[ownerId]!['phone'],
                         'invest': ownersInvestments[ownerId],
                         'share': 0.0, // Initialize share to 0
-                        'profitShareAmount': 0.0, // Initialize profitShareAmount to 0
-                        'remainingAmountShare': 0.0, // Initialize remainingAmountShare to 0
+                        'profitshareamount': 0.0, // Initialize profitShareAmount to 0
+                        'remainingamountshare': 0.0, // Initialize remainingAmountShare to 0
+                      });
+
+                      // Add to paymentdetails subcollection with unique ID
+                      await paymentDocRef.set({
+                        'name': ownersDetails[ownerId]!['name'],
+                        'email': ownersDetails[ownerId]!['email'],
+                        'phone': ownersDetails[ownerId]!['phone'],
+                        'invest': ownersInvestments[ownerId],
+                        'share': 0.0, // Initialize share to 0
+                        'profitshareamount': 0.0, // Initialize profitShareAmount to 0
+                        'remainingamountshare': 0.0, // Initialize remainingAmountShare to 0
+                        'user': 'Owner',
+                        'payment': 'Not Paid',
+                        'paidamount':'0.0',
+                        'pendingamount':'0.0',
+                        'modeofpayment':'Cash',
+                        'date': Timestamp.fromDate(currentDate),
+                        'inchargeid': ownerId, // Set inchargeid as ownerId
+                        'newentryid': documentId, // Set newentryid as the documentId
                       });
                     } else {
                       // Show a SnackBar with a message indicating that the owner already exists
@@ -1486,15 +1634,16 @@ Future<void> _addOwnerToShare(String documentId) async {
                     }
                   }
 
+                  Navigator.pop(context);
                   // Recalculate owner share
-                   await _recalculateOwnerShare(documentId);
-                 await _updateProfitShareAmount(documentId);
-                await _updateRemainingAmountShare(documentId);
+                  await _recalculateOwnerShare(documentId);
+                  await _updateProfitShareAmount(documentId);
+                  await _updateRemainingAmountShare(documentId);
 
                   // Update UI
-                  setState(() {});
-
-                  Navigator.pop(context);
+                     if (mounted) { // Check if the widget is still mounted
+        setState(() {});
+      }
                 } catch (e) {
                   print('Error adding owners to share: $e');
                 }
@@ -1507,6 +1656,164 @@ Future<void> _addOwnerToShare(String documentId) async {
     );
   } catch (e) {
     print('Error fetching owner details: $e');
+  }
+}
+Future<void> _editOwnerShare(String documentId, String ownerId, double currentInvest, String userRole) async {
+  if (userRole != 'Headowner') {
+    print('You do not have access to edit owner shares.');
+    return;
+  }
+
+  TextEditingController investController = TextEditingController(text: currentInvest.toString());
+
+  // Show the edit dialog
+  bool shouldRefreshUI = await showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text('Edit Investment'),
+        content: TextField(
+          controller: investController,
+          decoration: InputDecoration(labelText: 'Investment'),
+          keyboardType: TextInputType.number,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context, false); // Return false to indicate cancellation
+            },
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              try {
+                // Check if the text field is empty, set newInvest to 0 if it's empty
+                double newInvest = investController.text.isNotEmpty ? double.parse(investController.text) : 0.0;
+
+                // Check if the inchargeid and newentryid in the paymentdetails collection match the criteria
+                QuerySnapshot paymentDetailsSnapshot = await FirebaseFirestore.instance
+                    .collection('organizations')
+                    .doc(organizationId)
+                    .collection('paymentdetails')
+                    .where('inchargeid', isEqualTo: ownerId) // Assuming ownerId is the inchargeid
+                    .where('newentryid', isEqualTo: documentId)
+                    .get();
+
+                // If the query returns at least one document, proceed with updating the owner share
+                if (paymentDetailsSnapshot.docs.isNotEmpty) {
+                  await FirebaseFirestore.instance
+                      .collection('organizations')
+                      .doc(organizationId)
+                      .collection('newentry')
+                      .doc(documentId)
+                      .collection('ownershare')
+                      .doc(ownerId)
+                      .update({'invest': newInvest});
+
+                  Navigator.pop(context, true); // Return true to indicate successful update
+                } else {
+                  print('Invalid inchargeid or newentryid in paymentdetails collection.');
+                }
+              } catch (e) {
+                print('Error editing owner share: $e');
+              }
+            },
+            child: Text('Save'),
+          ),
+        ],
+      );
+    },
+  );
+
+  // Check if the UI needs to be refreshed
+  if (shouldRefreshUI == true) {
+    // Recalculate share
+    await _recalculateOwnerShare(documentId);
+    await _updateProfitShareAmount(documentId);
+    await _updateRemainingAmountShare(documentId);
+    await _updatePaymentDetails(documentId);
+
+    // Refresh the UI
+        if (mounted) { // Check if the widget is still mounted
+        setState(() {});
+      }
+  }
+}
+
+
+Future<void> _deleteOwnerShare(String documentId, String ownerId, String userRole) async {
+  if (userRole != 'Headowner') {
+    print('You do not have access to delete owner shares.');
+    return;
+  }
+
+  // Show the confirmation dialog
+  bool confirmDelete = await showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text('Confirm Deletion'),
+        content: Text('Are you sure you want to delete this owner share entry?'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context, false); // Return false to indicate cancellation
+            },
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context, true); // Return true to confirm deletion
+            },
+            child: Text('Delete'),
+          ),
+        ],
+      );
+    },
+  );
+
+  // Check if the user confirmed the deletion
+  if (confirmDelete == true) {
+    try {
+      // Delete the owner share entry
+      await FirebaseFirestore.instance
+          .collection('organizations')
+          .doc(organizationId)
+          .collection('newentry')
+          .doc(documentId)
+          .collection('ownershare')
+          .doc(ownerId)
+          .delete();
+
+      // Recalculate share
+      await _recalculateOwnerShare(documentId);
+      await _updateProfitShareAmount(documentId);
+      await _updateRemainingAmountShare(documentId);
+      await _deletePaymentDetails(ownerId, documentId);
+
+      // Refresh the UI
+          if (mounted) { // Check if the widget is still mounted
+        setState(() {});
+      }
+    } catch (e) {
+      print('Error deleting owner share: $e');
+    }
+  }
+}
+
+
+Future<QuerySnapshot> _fetchOwnerShareSubcollection(String documentId) async {
+  try {
+    return await FirebaseFirestore.instance
+        .collection('organizations')
+        .doc(organizationId)
+        .collection('newentry')
+        .doc(documentId)
+        .collection('ownershare')
+        .get();
+  } catch (e) {
+    print('Error fetching owner share: $e');
+    throw e;
   }
 }
 
@@ -1541,19 +1848,13 @@ Future<void> _recalculateOwnerShare(String documentId) async {
           .doc(owner.id)
           .update({'share': share});
     }
+
+    // Update paymentdetails after recalculating owner share
+    await _updatePaymentDetails(documentId);
   } catch (e) {
     print('Error recalculating owner share: $e');
   }
 }
-
-  double _calculateShare(double invest, double totalInvest) {
-    if (totalInvest == 0) {
-      // To avoid division by zero
-      return 0.0;
-    }
-
-    return (invest / totalInvest) * 100;
-  }
 
 Future<void> _updateRemainingAmountShare(String documentId) async {
   try {
@@ -1596,6 +1897,9 @@ Future<void> _updateRemainingAmountShare(String documentId) async {
           .doc(owner.id)
           .update({'remainingamountshare': ownerRemainingAmountShare});
     }
+
+    // Update paymentdetails after updating remaining amount share
+    await _updatePaymentDetails(documentId);
   } catch (e) {
     print('Error updating remaining amount share: $e');
   }
@@ -1643,12 +1947,63 @@ Future<void> _updateProfitShareAmount(String documentId) async {
           .doc(owner.id)
           .update({'profitshareamount': profitShareAmount});
     }
+
+    // Update paymentdetails after updating profit share amount
+    await _updatePaymentDetails(documentId);
   } catch (e) {
     print('Error updating profit share amount: $e');
   }
 }
 
-  String _formatDate(dynamic date) {
+Future<void> _updatePaymentDetails(String documentId) async {
+  try {
+    // Fetch owners from ownershare
+    QuerySnapshot ownersSnapshot = await FirebaseFirestore.instance
+        .collection('organizations')
+        .doc(organizationId)
+        .collection('newentry')
+        .doc(documentId)
+        .collection('ownershare')
+        .get();
+
+    for (var owner in ownersSnapshot.docs) {
+      String ownerId = owner.id;
+      
+      // Fetch corresponding paymentdetails document
+      QuerySnapshot paymentDetailsSnapshot = await FirebaseFirestore.instance
+          .collection('organizations')
+          .doc(organizationId)
+          .collection('paymentdetails')
+          .where('inchargeid', isEqualTo: ownerId) // Assuming ownerId is the inchargeid
+          .where('newentryid', isEqualTo: documentId)
+          .get();
+
+      if (paymentDetailsSnapshot.docs.isNotEmpty) {
+        var paymentDetailDoc = paymentDetailsSnapshot.docs.first;
+        
+        double share = owner['share'] ?? 0.0;
+        double profitShareAmount = owner['profitshareamount'] ?? 0.0;
+        double remainingAmountShare = owner['remainingamountshare'] ?? 0.0;
+
+        // Calculate pending amount
+        double paidAmount = double.tryParse(paymentDetailDoc['paidamount'] ?? '0.0') ?? 0.0;
+        double pendingAmount = remainingAmountShare - paidAmount;
+
+        // Update the corresponding document in paymentdetails including pending amount
+        await paymentDetailDoc.reference.update({
+          'share': share,
+          'profitshareamount': profitShareAmount,
+          'remainingamountshare': remainingAmountShare,
+          'pendingamount': pendingAmount.toString(), // Update pending amount
+        });
+      }
+    }
+  } catch (e) {
+    print('Error updating payment details: $e');
+  }
+}
+
+String _formatDate(dynamic date) {
     if (date == null) return '';
 
     if (date is Timestamp) {

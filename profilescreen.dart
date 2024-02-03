@@ -106,8 +106,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await _updateSubcollectionFields(loggedInUser!.uid, updatedData);
 
     await _updateWorkManagementSubcollectionFields(loggedInUser!.uid, updatedData);
- await _updateSalaryToCrewMembersSubcollection(loggedInUser!.uid,  updatedData);
+    await _updateSalaryToCrewMembersSubcollection(loggedInUser!.uid,  updatedData);
     await _updateOwnerShareSubcollection(loggedInUser!.uid, updatedData);
+    await _updatePaymentDetailsSubcollectionFields(loggedInUser!.uid, updatedData);
 
     // Update the profile screen UI
     if (mounted) { // Check if the widget is still mounted
@@ -136,8 +137,6 @@ Future<void> _updateSubcollectionFields(String userId, Map<String, dynamic> upda
         // Update only if the document belongs to the current user
         if (doc.id == userId) {
           await doc.reference.update({'name': updatedData['name'], 'phone': updatedData['phone']});
-
-        
         }
       }
     }
@@ -149,30 +148,55 @@ Future<void> _updateSubcollectionFields(String userId, Map<String, dynamic> upda
 
 Future<void> _updateWorkManagementSubcollectionFields(String userId, Map<String, dynamic> updatedData) async {
   try {
+    // Fetch user document
     final userDoc = await _firestore.collection('users').doc(userId).get();
     final organizationId = userDoc.data()?['organizationId'];
-   
 
-    final subcollections = ['workmanagement'];
+    // Query documents in the 'workmanagement' subcollection under the organizationId
+    final querySnapshot = await _firestore.collection('organizations').doc(organizationId).collection('workmanagement').get();
 
-    for (String subcollection in subcollections) {
-      final querySnapshot = await _firestore.collection('organizations').doc(organizationId).collection(subcollection).get();
-
-      for (DocumentSnapshot doc in querySnapshot.docs) {
-        // Update only if the document belongs to the current user
-        if (doc.id == userId) {
-          await doc.reference.update({'incharge': updatedData['name']});
-
-        
-        }
+    // Iterate over each document in the query result
+    for (DocumentSnapshot doc in querySnapshot.docs) {
+      // Access 'inchargeid' using bracket notation
+      final inchargeId = doc['inchargeid'];
+      if (inchargeId == userId) {
+        // Update the 'incharge' field of the document with the value from the 'updatedData' map
+        await doc.reference.update({'incharge': updatedData['name']});
       }
     }
-  
-  }
- catch (e) {
+  } catch (e) {
+    // Catch and handle errors
     print('Error updating workmanagement subcollection: $e');
   }
 }
+
+Future<void> _updatePaymentDetailsSubcollectionFields(String userId, Map<String, dynamic> updatedData) async {
+  try {
+    // Fetch user document
+    final userDoc = await _firestore.collection('users').doc(userId).get();
+    final organizationId = userDoc.data()?['organizationId'];
+
+    // Query documents in the 'paymentdetails' subcollection under the organizationId
+    final querySnapshot = await _firestore.collection('organizations').doc(organizationId).collection('paymentdetails').get();
+
+    // Iterate over each document in the query result
+    for (DocumentSnapshot doc in querySnapshot.docs) {
+      // Access 'inchargeid' using bracket notation
+      final inchargeId = doc['inchargeid'];
+      if (inchargeId == userId) {
+        // Update the 'name' and 'phone' fields of the document with the values from the 'updatedData' map
+        await doc.reference.update({
+          'name': updatedData['name'],
+          'phone': updatedData['phone']
+        });
+      }
+    }
+  } catch (e) {
+    // Catch and handle errors
+    print('Error updating paymentdetails subcollection: $e');
+  }
+}
+
 
 Future<void> _updateSalaryToCrewMembersSubcollection(String userId, Map<String, dynamic> updatedData) async {
   try {
@@ -246,8 +270,6 @@ for (DocumentSnapshot doc in subcollectionQuery.docs) {
     print('Error updating ownershare subcollection: $e');
   }
 }
-
-
 
   TextEditingController _nameController = TextEditingController();
   TextEditingController _phoneController = TextEditingController();

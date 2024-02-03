@@ -1,7 +1,7 @@
 import 'package:fishbook/databasescreen.dart';
 import 'package:fishbook/idscreen.dart';
 import 'package:fishbook/newentryscreen.dart';
-
+import 'package:fishbook/fishingsailpayment.dart';
 import 'package:fishbook/notificationsscreen.dart';
 import 'package:fishbook/statementsscreen.dart';
 import 'package:flutter/material.dart';
@@ -41,7 +41,8 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               buildFinanceContainer(),
               buildWorkContainer(),
-              buildDatabaseContainer()
+              buildDatabaseContainer(),
+              buildFishingSailPaymentContainer(),
               
             ],
           ),
@@ -366,6 +367,29 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget buildFishingSailPaymentContainer() {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => FishingSailPayment(), // Navigate to FishingSailPaymentPage
+          ),
+        );
+      },
+      child: Container(
+        width: 80,
+        height: 60,
+        color: Colors.blue,
+        child: Center(
+          child: Text(
+            'Fishing Sail Payment',
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget buildPendingContainer(String title) {
     return Container(

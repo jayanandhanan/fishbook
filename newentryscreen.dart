@@ -41,6 +41,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   List<Map<String, dynamic>> revenuesList = [];
 
   bool updatingShareForOwners = false;
+  bool isAddingEntry = false; // Add this line to declare the flag
 
 // Define a Map to hold amount controllers for each crew member
 Map<String, TextEditingController> crewAmountControllers = {};
@@ -187,7 +188,7 @@ void dispose() {
               Text('Total Profit: ${_calculateTotalProfit().toStringAsFixed(2)}'),
               SizedBox(height: 20),
                   // Display Remaining Amount
-              Text('Remaining Amount After Crewmember Salary: ${remainingAmount.toStringAsFixed(2)}'),
+              Text('Remaining Amount After Giving Crewmembers Salary: ${remainingAmount.toStringAsFixed(2)}'),
               SizedBox(height: 20),
               // Select Crew Members
               ElevatedButton(
@@ -241,9 +242,7 @@ void dispose() {
 
               // Calculate Share for Owners
               ElevatedButton(
-                onPressed: () {
-                  _addNewEntry();
-                },
+                onPressed: isAddingEntry ? null : _addNewEntry,
                 child: Text('Add to Database'),
               ),
             ],
@@ -495,7 +494,6 @@ double _calculateTotalProfit() {
                     remainingAmount = _calculateRemainingAmount();
                   });
                 },
-                decoration: InputDecoration(labelText: 'Amount'),
               ),
             ),
           ),
@@ -822,6 +820,15 @@ Future<void> _selectOwners(BuildContext context) async {
 }
 
 Future<void> _addNewEntry() async {
+ // Prevent multiple submissions
+  if (isAddingEntry) {
+    return;
+  }
+
+  setState(() {
+    isAddingEntry = true;
+  });
+  
   try {
     // Step 1: Retrieve the current user
     User? user = _auth.currentUser;
@@ -875,15 +882,15 @@ Future<void> _addNewEntry() async {
             // Add subcollections
             await _addRevenueSubcollection(newEntryDocRef);
             await _addExpenseSubcollection(newEntryDocRef);
-            await _addSalaryToCrewMembersSubcollection(newEntryDocRef);
-            await _addOwnerShareSubcollection(newEntryDocRef);
+            await _addSalaryToCrewMembersSubcollection(newEntryDocRef,organizationId);
+            await _addOwnerShareSubcollection(newEntryDocRef,organizationId);
 
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Added to New Entry'),
               ),
             );
-            // Navigate back to the home screen
+
             Navigator.pop(context);
           } else {
             print('Organization does not exist.');
@@ -910,6 +917,11 @@ Future<void> _addNewEntry() async {
       ),
     );
   }
+finally {
+    setState(() {
+      isAddingEntry = false;
+    });
+  }
 }
 
 Future<void> _addRevenueSubcollection(DocumentReference newEntryDocRef) async {
@@ -919,16 +931,24 @@ Future<void> _addRevenueSubcollection(DocumentReference newEntryDocRef) async {
   }
 }
 
-Future<void> _addSalaryToCrewMembersSubcollection(
-    DocumentReference newEntryDocRef) async {
-  CollectionReference salaryToCrewMembersCollection =
-      newEntryDocRef.collection('salarytocrewmembers');
+Future<void> _addSalaryToCrewMembersSubcollection(DocumentReference newEntryDocRef, String organizationId) async {
+  CollectionReference salaryToCrewMembersCollection = newEntryDocRef.collection('salarytocrewmembers');
+  CollectionReference paymentDetailsCollection = FirebaseFirestore.instance.collection('organizations').doc(organizationId).collection('paymentdetails');
+
+  // Retrieve the ID of newEntryDocRef
+  String newEntryDocId = newEntryDocRef.id;
+
+  // Get the current datetime
+  DateTime currentDate = DateTime.now();
 
   for (var crewMemberId in selectedCrewMemberIds) {
     var crewMember = crewMembers.firstWhere((element) => element.id == crewMemberId);
 
-    // Use the same ID as the 'crewmembers' collection
+    // Use crewMemberId as the document ID for salarytocrewmembers
     DocumentReference salaryDocRef = salaryToCrewMembersCollection.doc(crewMemberId);
+
+    // Generate unique document ID for paymentdetails
+    DocumentReference paymentDocRef = paymentDetailsCollection.doc();
 
     await salaryDocRef.set({
       'name': crewMember['name'],
@@ -936,8 +956,25 @@ Future<void> _addSalaryToCrewMembersSubcollection(
       'email': crewMember['email'],
       'amount': crewAmounts[crewMemberId],
     });
+
+    // Set inchargeId as crewMemberId in the paymentdetails document
+    await paymentDocRef.set({
+      'name': crewMember['name'],
+      'phone': crewMember['phone'],
+      'email': crewMember['email'],
+      'amount': crewAmounts[crewMemberId],
+      'user': 'Crew Member',
+      'payment': 'Not Paid',
+      'paidamount':'0.0',
+      'pendingamount':'0.0',
+      'modeofpayment':'Cash',
+      'date': Timestamp.fromDate(currentDate),
+      'inchargeid': crewMemberId, // Set inchargeId as crewMemberId
+      'newentryid': newEntryDocId, // Set newentryid with the document ID of newEntryDocRef
+    });
   }
 }
+
 
 Future<void> _addExpenseSubcollection(DocumentReference newEntryDocRef) async {
   CollectionReference expenseCollection = newEntryDocRef.collection('expense');
@@ -946,28 +983,60 @@ Future<void> _addExpenseSubcollection(DocumentReference newEntryDocRef) async {
   }
 }
 
-Future<void> _addOwnerShareSubcollection(DocumentReference newEntryDocRef) async {
+Future<void> _addOwnerShareSubcollection(DocumentReference newEntryDocRef, String organizationId) async {
   CollectionReference ownerShareCollection = newEntryDocRef.collection('ownershare');
+  CollectionReference paymentDetailsCollection = FirebaseFirestore.instance.collection('organizations').doc(organizationId).collection('paymentdetails');
+
+ // Retrieve the ID of newEntryDocRef
+  String newEntryDocId = newEntryDocRef.id;
+
+  // Get the current datetime
+  DateTime currentDate = DateTime.now();
 
   for (var ownerId in selectedOwnerIds) {
     var owner = owners.firstWhere((element) => element.id == ownerId);
 
-    // Use the same ID as the 'owners' collection
+    // Use the ownerId as the document ID for ownerShareCollection
     DocumentReference ownerShareDocRef = ownerShareCollection.doc(ownerId);
 
-    double totalProfit= _calculateTotalProfit();
+    // Generate unique document ID for paymentdetails
+    DocumentReference paymentDocRef = paymentDetailsCollection.doc();
+
+    double totalProfit = _calculateTotalProfit();
+    double profitShareAmount = _calculateProfitShareAmount(ownerShares[ownerId]!, totalProfit);
+    double remainingAmountShare = _calculateRemainingAmountShare(ownerShares[ownerId]!, remainingAmount);
+
     await ownerShareDocRef.set({
       'name': owner['name'],
       'phone': owner['phone'],
       'email': owner['email'],
       'invest': ownerInvestments[ownerId],
       'share': ownerShares[ownerId],
-      'profitshareamount': _calculateProfitShareAmount(ownerShares[ownerId]!,totalProfit),
-      'remainingamountshare': _calculateRemainingAmountShare(ownerShares[ownerId]!, remainingAmount)
+      'profitshareamount': profitShareAmount,
+      'remainingamountshare': remainingAmountShare,
+    });
 
+    // Set inchargeId as ownerId in the paymentdetails document
+    await paymentDocRef.set({
+      'name': owner['name'],
+      'phone': owner['phone'],
+      'email': owner['email'],
+      'invest': ownerInvestments[ownerId],
+      'share': ownerShares[ownerId],
+      'profitshareamount': profitShareAmount,
+      'remainingamountshare': remainingAmountShare,
+      'user': 'Owner',
+      'payment': 'Not Paid',
+      'paidamount':'0.0',
+      'pendingamount':'0.0',
+      'modeofpayment':'Cash',
+      'date': Timestamp.fromDate(currentDate),
+      'inchargeid': ownerId, // Set inchargeId as ownerId
+      'newentryid': newEntryDocId,
     });
   }
 }
+
 
 double _calculateRemainingAmountShare(double sharePercentage, double remainingAmount) {
   double remainingAmount = _calculateRemainingAmount();

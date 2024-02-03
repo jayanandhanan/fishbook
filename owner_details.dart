@@ -15,6 +15,25 @@ class _OwnerDetailsPageState extends State<OwnerDetailsPage> {
   bool isEditing = false;
   String? editingOwnerDetailId;
   List<String> selectedRows = [];
+  String? userRole; 
+
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserRole(); // Fetch user role when the widget initializes
+  }
+
+  Future<void> _fetchUserRole() async {
+    String? userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId != null) {
+      DocumentSnapshot userSnapshot =
+          await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      setState(() {
+        userRole = userSnapshot['role']; // Assign the user role to the variable
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +44,7 @@ class _OwnerDetailsPageState extends State<OwnerDetailsPage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
+            if (userRole == 'Headowner')
             ElevatedButton(
               onPressed: () {
                 showDialog(
@@ -80,6 +100,7 @@ class _OwnerDetailsPageState extends State<OwnerDetailsPage> {
       DataColumn(label: Text('Phone')),
       DataColumn(label: Text('Email')),
       DataColumn(label: Text('Type')),
+      if (userRole == 'Headowner')
       DataColumn(label: Text('Actions')),
     ];
   }
@@ -125,9 +146,11 @@ class _OwnerDetailsPageState extends State<OwnerDetailsPage> {
               },
             ),
           ),
+          if (userRole == 'Headowner')
           DataCell(
             Row(
               children: [
+                if (userRole == 'Headowner')
                 IconButton(
                   icon: Icon(Icons.edit),
                   onPressed: () async {
@@ -142,7 +165,7 @@ class _OwnerDetailsPageState extends State<OwnerDetailsPage> {
                     }
                   },
                 ),
-                
+                if (userRole == 'Headowner')
                   IconButton(
                     icon: Icon(Icons.delete),
                     onPressed: () async {
