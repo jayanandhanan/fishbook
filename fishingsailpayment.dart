@@ -1,4 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:fishbook/home_screen.dart';
+import 'package:fishbook/login_screen.dart';
+import 'package:fishbook/statementsscreen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
@@ -11,10 +14,11 @@ class FishingSailPayment extends StatefulWidget {
 }
 
 class _FishingSailPaymentState extends State<FishingSailPayment> {
-  String _organizationId = '';
+  String? _organizationId;
   String? userRole;
   FilterType? _activeFilter;
  DateTime? _selectedDate;
+ bool isHomeScreen = false;
   String _selectedPaymentStatus = '';
   bool _showOwnerPayments = false;
   bool _showCrewMemberPayments = false;
@@ -65,8 +69,10 @@ class _FishingSailPaymentState extends State<FishingSailPayment> {
   Widget build(BuildContext context) {
   return Scaffold(
     appBar: AppBar(
-      title: Text('Fishing Sail Payment'),
-    ),
+      title: Text('Fishing Payment'),
+     backgroundColor: Colors.blue,
+      ),
+      bottomNavigationBar: buildBottomNavigationBar(context,false),
     body: SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -122,7 +128,7 @@ class _FishingSailPaymentState extends State<FishingSailPayment> {
               ],
             ),
           ),
-          if (_organizationId != null && _organizationId.isNotEmpty)
+          if (_organizationId != null )
             _showOwnerPayments
                 ? _buildPaymentTable(
                     userType: 'Owner',
@@ -143,7 +149,61 @@ class _FishingSailPaymentState extends State<FishingSailPayment> {
     ),
   );
 }
-
+BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeScreen) {
+    return BottomNavigationBar(
+      currentIndex: 0,
+      fixedColor: Colors.grey , 
+      items: [
+        BottomNavigationBarItem(
+           icon: Icon(Icons.home, color: Colors.grey), 
+          label: "Home",
+           backgroundColor: Color(0xFFF9D8C5),
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.wrap_text),
+          label: "Statements",
+           backgroundColor: Color(0xFFF9D8C5),
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.exit_to_app),
+          label: "Logout",
+           backgroundColor: Color(0xFFF9D8C5),
+        ),
+      ],
+      onTap: (index) {
+        setState(() {
+          switch (index) {
+            case 0:
+              // Navigate to HomeScreen only if it's not the current screen
+              if (!isHomeScreen) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => HomeScreen(organizationId: _organizationId)),
+                );
+              }
+              break;
+            case 1:
+              // Navigate to StatementScreen
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => StatementScreen()),
+              );
+              break;
+            case 2:
+              // Logout
+              FirebaseAuth.instance.signOut().then((value) {
+                print("Signed Out");
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+                );
+              });
+              break;
+          }
+        });
+      },
+    );
+  }
   Widget _buildFilterButton(
       String title, FilterType filterType, Function()? onPressed) {
     return ElevatedButton(
@@ -193,13 +253,26 @@ Widget _buildResetFiltersButton() {
       }
 
       List<QueryDocumentSnapshot> payments = snapshot.data!.docs;
-
+payments.sort((a, b) {
+  DateTime dateA = (a['paymentdate'] as Timestamp).toDate();
+  DateTime dateB = (b['paymentdate'] as Timestamp).toDate();
+  return dateA.compareTo(dateB); // Sorting in ascending order
+});
       return SingleChildScrollView(
-        scrollDirection: Axis.horizontal, // <-- Add this line
-        child: DataTable(
-          columnSpacing: 16.0,
+         scrollDirection: Axis.horizontal,
+    child: SingleChildScrollView(
+      scrollDirection: Axis.vertical,
+ child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.black), // Add black border around the table
+          ),
+          child: DataTable(
+            showCheckboxColumn: false,
+            columnSpacing: 16.0,
+            headingRowColor: MaterialStateColor.resolveWith((states) => Color(0xFFF9D8C5)), // Set header row color
+            dividerThickness: 1.0, // Add separator lines between columns
           columns: [
-            DataColumn(label: Text('Date')),
+            DataColumn(label: Text('Payment Date')),
             DataColumn(label: Text('Name')),
             DataColumn(label: Text('User')),
             DataColumn(label: Text('Amount')),
@@ -209,7 +282,7 @@ Widget _buildResetFiltersButton() {
             DataColumn(label: Text('Mode of Payment')),
           ],
           rows: payments.map<DataRow>((paymentDoc) {
-            Timestamp timestamp = paymentDoc['date'] ?? Timestamp.now();
+            Timestamp timestamp = paymentDoc['paymentdate'] ?? Timestamp.now();
             DateTime dateTime = timestamp.toDate();
             String formattedDate = DateFormat('dd-MM-yyyy').format(dateTime);
 
@@ -290,7 +363,7 @@ Widget _buildResetFiltersButton() {
             return DataRow(cells: cells);
           }).toList(),
         ),
-      );
+      ),),);
     },
   );
 }
@@ -357,7 +430,7 @@ void _showModeOfPaymentDialog(DocumentSnapshot paymentDoc,String userRole) {
             TextButton(
               onPressed: () {
                 _updatePaidAmount(paymentDoc, paidAmountController.text,
-                    paymentDoc['date'].toDate(), userType);
+                    paymentDoc['paymentdate'].toDate(), userType);
                 Navigator.of(context).pop();
               },
               child: Text('OK'),
@@ -386,7 +459,7 @@ void _showModeOfPaymentDialog(DocumentSnapshot paymentDoc,String userRole) {
       lastDate: DateTime(2100),
     );
     if (selectedDate != null) {
-      paymentDoc.reference.update({'date': selectedDate});
+      paymentDoc.reference.update({'paymentdate': selectedDate});
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Date updated successfully.'),
@@ -409,7 +482,7 @@ void _showModeOfPaymentDialog(DocumentSnapshot paymentDoc,String userRole) {
 
     // Apply filters based on user type
     if (activeFilter == FilterType.Date && selectedDate != null) {
-      paymentQuery = paymentQuery.where('date', isEqualTo: selectedDate);
+      paymentQuery = paymentQuery.where('paymentdate', isEqualTo: selectedDate);
     } else if (activeFilter == FilterType.Payment && selectedPaymentStatus.isNotEmpty) {
       paymentQuery = paymentQuery.where('payment', isEqualTo: selectedPaymentStatus);
     }

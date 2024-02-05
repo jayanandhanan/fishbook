@@ -1,8 +1,12 @@
+import 'package:fishbook/home_screen.dart';
+import 'package:fishbook/login_screen.dart';
+import 'package:fishbook/statementsscreen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class OwnerDetailsPage extends StatefulWidget {
+ 
   @override
   _OwnerDetailsPageState createState() => _OwnerDetailsPageState();
 }
@@ -16,12 +20,24 @@ class _OwnerDetailsPageState extends State<OwnerDetailsPage> {
   String? editingOwnerDetailId;
   List<String> selectedRows = [];
   String? userRole; 
-
+  String? organizationId;
+  String? currentUserId; 
+   
 
   @override
   void initState() {
     super.initState();
     _fetchUserRole(); // Fetch user role when the widget initializes
+    getCurrentUser();
+  }
+
+  Future<void> getCurrentUser() async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      currentUserId = user.uid;
+      await fetchOrganizationId();
+      
+    }
   }
 
   Future<void> _fetchUserRole() async {
@@ -35,12 +51,24 @@ class _OwnerDetailsPageState extends State<OwnerDetailsPage> {
     }
   }
 
+  Future<void> fetchOrganizationId() async {
+    DocumentSnapshot userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(currentUserId)
+        .get();
+    setState(() {
+      organizationId = userDoc['organizationId'];
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Owner Details'),
+        backgroundColor: Colors.blue,
       ),
+      bottomNavigationBar: buildBottomNavigationBar(context),
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -66,105 +94,181 @@ class _OwnerDetailsPageState extends State<OwnerDetailsPage> {
     );
   }
 
-  Widget _buildOwnerTable() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _getOwnerDetailsStream(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Center(
-            child: Text('Error: ${snapshot.error}'),
-          );
+BottomNavigationBar buildBottomNavigationBar(BuildContext context) {
+    return BottomNavigationBar(
+      currentIndex: 0,
+      fixedColor:  Colors.grey ,
+      items: [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.home, color: Colors.grey), 
+          label: "Home",
+          backgroundColor: Color(0xFFF9D8C5),
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.wrap_text),
+          label: "Statements",
+          backgroundColor: Color(0xFFF9D8C5),
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.exit_to_app),
+          label: "Logout",
+          backgroundColor: Color(0xFFF9D8C5),
+        ),
+      ],
+      onTap: (index) {
+        switch (index) {
+          case 0:
+            // Navigate to HomeScreen
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => HomeScreen(organizationId: organizationId),
+              ),
+            );
+            break;
+          case 1:
+            // Navigate to StatementScreen
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => StatementScreen(),
+              ),
+            );
+            break;
+          case 2:
+            // Logout
+            FirebaseAuth.instance.signOut().then((value) {
+              print("Signed Out");
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+              );
+            });
+            break;
         }
-
-        if (snapshot.connectionState != ConnectionState.active) {
-          return Center(
-            child: CircularProgressIndicator(),
-          );
-        }
-
-        List<DocumentSnapshot> ownerDetails = snapshot.data?.docs ?? [];
-
-        return DataTable(
-          showCheckboxColumn: false,
-          columns: _buildTableColumns(),
-          columnSpacing: 16.0,
-          rows: _buildTableRows(ownerDetails),
-        );
       },
     );
   }
 
-  List<DataColumn> _buildTableColumns() {
-    return [
-      DataColumn(label: Text('Name')),
-      DataColumn(label: Text('Phone')),
-      DataColumn(label: Text('Email')),
-      DataColumn(label: Text('Type')),
-      if (userRole == 'Headowner')
-      DataColumn(label: Text('Actions')),
-    ];
-  }
+Widget _buildOwnerTable() {
+  return StreamBuilder<QuerySnapshot>(
+    stream: _getOwnerDetailsStream(),
+    builder: (context, snapshot) {
+      if (snapshot.hasError) {
+        return Center(
+          child: Text('Error: ${snapshot.error}'),
+        );
+      }
 
-   List<DataRow> _buildTableRows(List<DocumentSnapshot> ownerDetails) {
-    return ownerDetails.map((ownerDetail) {
-      return DataRow(
-        selected: selectedRows.contains(ownerDetail.id),
-        onSelectChanged: (selected) {
-          if (selected != null) {
-            setState(() {
-              if (selected) {
-                selectedRows.add(ownerDetail.id);
+      if (snapshot.connectionState != ConnectionState.active) {
+        return Center(
+          child: CircularProgressIndicator(),
+        );
+      }
+
+      List<DocumentSnapshot> ownerDetails = snapshot.data?.docs ?? [];
+
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.black), // Add black border around the table
+          ),
+          child: DataTable(
+            showCheckboxColumn: false,
+            columns: _buildTableColumns(),
+            columnSpacing: 16.0,
+            dividerThickness: 1.0, // Add separator lines between columns
+            headingRowColor: MaterialStateColor.resolveWith((states) =>  const Color(0xFFF9D8C5),), // Set header row color
+            rows: _buildTableRows(ownerDetails),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+List<DataColumn> _buildTableColumns() {
+  return [
+    DataColumn(
+      label: Text('Name'),
+    ),
+    DataColumn(
+      label: Text('Phone'),
+    ),
+    DataColumn(
+      label: Text('Email'),
+    ),
+    DataColumn(
+      label: Text('Type'),
+    ),
+    if (userRole == 'Headowner')
+      DataColumn(
+        label: Text('Actions'),
+      ),
+  ];
+}
+
+List<DataRow> _buildTableRows(List<DocumentSnapshot> ownerDetails) {
+  return ownerDetails.map((ownerDetail) {
+    return DataRow(
+      selected: selectedRows.contains(ownerDetail.id),
+      onSelectChanged: (selected) {
+        if (selected != null) {
+          setState(() {
+            if (selected) {
+              selectedRows.add(ownerDetail.id);
+            } else {
+              selectedRows.remove(ownerDetail.id);
+            }
+          });
+        }
+      },
+      cells: [
+        DataCell(
+          Text(ownerDetail['name'].toString()),
+        ),
+        DataCell(
+          Text(ownerDetail['phone'].toString()),
+        ),
+        DataCell(
+          Text(ownerDetail['email'].toString()),
+        ),
+        DataCell(
+          FutureBuilder<Widget>(
+            future: _buildAddedByColumn(ownerDetail),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return CircularProgressIndicator();
               } else {
-                selectedRows.remove(ownerDetail.id);
-              }
-            });
-          }
-        },
-        cells: [
-          DataCell(
-            Text(ownerDetail['name'].toString()),
-          ),
-          DataCell(
-            Text(ownerDetail['phone'].toString()),
-          ),
-          DataCell(
-            Text(ownerDetail['email'].toString()),
-          ),
-          DataCell(
-            FutureBuilder<Widget>(
-              future: _buildAddedByColumn(ownerDetail),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return CircularProgressIndicator(); // or any other loading indicator
+                if (snapshot.hasError) {
+                  return Text('Error: ${snapshot.error}');
                 } else {
-                  if (snapshot.hasError) {
-                    return Text('Error: ${snapshot.error}');
-                  } else {
-                    return snapshot.data!;
-                  }
+                  return snapshot.data!;
                 }
-              },
-            ),
+              }
+            },
           ),
-          if (userRole == 'Headowner')
+        ),
+        if (userRole == 'Headowner')
           DataCell(
             Row(
               children: [
                 if (userRole == 'Headowner')
-                IconButton(
-                  icon: Icon(Icons.edit),
-                  onPressed: () async {
-                    if (await _isEditingAllowed(ownerDetail.id)) {
-                      editOwnerDetail(ownerDetail);
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('You cannot edit this owner.'),
-                        ),
-                      );
-                    }
-                  },
-                ),
+                  IconButton(
+                    icon: Icon(Icons.edit),
+                    onPressed: () async {
+                      if (await _isEditingAllowed(ownerDetail.id)) {
+                        editOwnerDetail(ownerDetail);
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('You cannot edit this owner.'),
+                          ),
+                        );
+                      }
+                    },
+                  ),
                 if (userRole == 'Headowner')
                   IconButton(
                     icon: Icon(Icons.delete),
@@ -183,10 +287,12 @@ class _OwnerDetailsPageState extends State<OwnerDetailsPage> {
               ],
             ),
           ),
-        ],
-      );
-    }).toList();
-  }
+      ],
+    );
+  }).toList();
+}
+
+
   Future<Widget> _buildAddedByColumn(DocumentSnapshot ownerDetail) async {
     if (await _isDocumentIdPresent(ownerDetail.id)) {
       return Text('Signed in user');

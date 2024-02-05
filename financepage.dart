@@ -1,6 +1,9 @@
 // ignore_for_file: unused_local_variable
 
 import 'package:fishbook/analyticsscreen.dart';
+import 'package:fishbook/home_screen.dart';
+import 'package:fishbook/login_screen.dart';
+import 'package:fishbook/statementsscreen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,30 +11,143 @@ import 'package:intl/intl.dart';
 
 class FinancePage extends StatelessWidget {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  
 
   @override
   Widget build(BuildContext context) {
+    return FutureBuilder(
+      future: _getCurrentUser(),
+      builder: (context, AsyncSnapshot<User?> userSnapshot) {
+        if (userSnapshot.connectionState == ConnectionState.waiting) {
+          return Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+        if (userSnapshot.hasError) {
+          return Scaffold(
+            body: Center(
+              child: Text('Error: ${userSnapshot.error}'),
+            ),
+          );
+        }
+        final user = userSnapshot.data!;
+        return StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
+          builder: (context, AsyncSnapshot<DocumentSnapshot> userDataSnapshot) {
+            if (userDataSnapshot.connectionState == ConnectionState.waiting) {
+              return Scaffold(
+                body: Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
+            }
+            if (userDataSnapshot.hasError) {
+              return Scaffold(
+                body: Center(
+                  child: Text('Error: ${userDataSnapshot.error}'),
+                ),
+              );
+            }
+            final organizationId = userDataSnapshot.data!['organizationId'];
+            final userRole = userDataSnapshot.data!['role'];
+            return _buildFinancePage(context,organizationId, userRole);
+          },
+        );
+      },
+    );
+  }
+
+bool isHomeScreen = false;
+
+  Widget _buildFinancePage(BuildContext context, String organizationId, String userRole) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Finance Page'),
+        backgroundColor: Colors.blue,
       ),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: 20), // Add space before the tables
-            _buildFinanceTable(),
+            SizedBox(height: 20),
+            Container(
+              padding: EdgeInsets.all(8.0),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.black),
+              ),
+              child: _buildFinanceTable(organizationId, userRole),
+            ),
             ElevatedButton(
-              onPressed: () => _addToDatabase(context),
+              onPressed: () => _addToDatabase(context, organizationId, userRole),
               child: Text('Monthly Analytics and Chart'),
             ),
           ],
         ),
       ),
+      bottomNavigationBar: _buildBottomNavigationBar(context, organizationId, userRole),
     );
   }
 
-Future<void> _addToDatabase(BuildContext context) async {
+  BottomNavigationBar _buildBottomNavigationBar(BuildContext context, String organizationId, String userRole) {
+    return BottomNavigationBar(
+      currentIndex: 0,
+      fixedColor: Colors.grey , 
+      items: [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.home, color: Colors.grey), 
+          label: "Home",
+          backgroundColor: Color(0xFFF9D8C5),
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.wrap_text),
+          label: "Statements",
+          backgroundColor: Color(0xFFF9D8C5),
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.exit_to_app),
+          label: "Logout",
+          backgroundColor: Color(0xFFF9D8C5),
+        ),
+      ],
+      onTap: (index) {
+        switch (index) { case 0:
+            // Navigate to HomeScreen only if it's not the current screen
+            if (!isHomeScreen) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => HomeScreen(organizationId: organizationId),
+                ),
+              );
+            }
+            break;
+          case 1:
+            // Navigate to StatementScreen
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => StatementScreen(),
+              ),
+            );
+            break;
+          case 2:
+            // Logout
+            FirebaseAuth.instance.signOut().then((value) {
+              print("Signed Out");
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+              );
+            });
+            break;
+        }
+      },
+    );
+  }
+
+Future<void> _addToDatabase(BuildContext context, String organizationId, String userRole) async {
   try {
     final String orgId = await _getCurrentUserOrganizationId();
     final CollectionReference financeCollection = FirebaseFirestore.instance
@@ -94,63 +210,66 @@ Future<void> _addToDatabase(BuildContext context) async {
         .get();
     return querySnapshot.docs;
   }
-
- Widget _buildFinanceTable() {
-  return FutureBuilder(
-    future: _getCurrentUserOrganizationId(),
-    builder: (BuildContext context, AsyncSnapshot<String> orgIdSnapshot) {
-      if (orgIdSnapshot.connectionState == ConnectionState.waiting) {
+  
+Widget _buildFinanceTable(String organizationId, String userRole) {
+  return StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance
+        .collection('organizations')
+        .doc(organizationId)
+        .collection('newentry')
+        .snapshots(),
+    builder: (context, newEntrySnapshot) {
+      if (newEntrySnapshot.connectionState == ConnectionState.waiting) {
         return Center(child: CircularProgressIndicator());
       }
-
-      if (orgIdSnapshot.hasError) {
-        return Center(child: Text('Error: ${orgIdSnapshot.error}'));
+      if (newEntrySnapshot.hasError) {
+        return Center(child: Text('Error: ${newEntrySnapshot.error}'));
       }
-
-      final String organizationId = orgIdSnapshot.data!;
-
-      return StreamBuilder(
-        stream: FirebaseFirestore.instance
-            .collection('organizations')
-            .doc(organizationId)
-            .collection('newentry')
-            .snapshots(),
-        builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> newEntrySnapshot) {
-          if (newEntrySnapshot.hasError) {
-            return Center(child: Text('Error: ${newEntrySnapshot.error}'));
-          }
-
-          if (newEntrySnapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          }
-
-          final List<QueryDocumentSnapshot> newEntries = newEntrySnapshot.data!.docs;
-
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.vertical,
-              child: DataTable(
-                columnSpacing: 16.0,
-                columns: [
-                  DataColumn(label: Text('Month')),
-                  DataColumn(label: Text('Year')),
-                  DataColumn(label: Text('Revenue')),
-                  DataColumn(label: Text('Expense')),
-                  DataColumn(label: Text('Profit')),
-                  DataColumn(label: Text('Sailing Date')), // New column for sailing date
-                  DataColumn(label: Text('Return Date')),  // New column for return date
-                ],
-                rows: _buildDataRowList(newEntries),
-              ),
+      final newEntries = newEntrySnapshot.data!.docs;
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.vertical,
+          child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.black), // Add black border around the table
+          ),
+          child: DataTable(
+            showCheckboxColumn: false,
+            columnSpacing: 16.0,
+            headingRowColor: MaterialStateColor.resolveWith((states) => Color(0xFFF9D8C5)), // Set header row color
+            dividerThickness: 1.0, // Add separator lines between columns
+              columns: [
+                DataColumn(
+                  label: Text('Month', style: TextStyle(color: Colors.black)),
+                ),
+                DataColumn(
+                  label: Text('Year', style: TextStyle(color: Colors.black)),
+                ),
+                DataColumn(
+                  label: Text('Revenue', style: TextStyle(color: Colors.black)),
+                ),
+                DataColumn(
+                  label: Text('Expense', style: TextStyle(color: Colors.black)),
+                ),
+                DataColumn(
+                  label: Text('Profit', style: TextStyle(color: Colors.black)),
+                ),
+                DataColumn(
+                  label: Text('Sailing Date', style: TextStyle(color: Colors.black)),
+                ),
+                DataColumn(
+                  label: Text('Return Date', style: TextStyle(color: Colors.black)),
+                ),
+              ],
+              rows: _buildDataRowList(newEntries),
             ),
-          );
-        },
+          ),
+        ),
       );
     },
   );
 }
-
 
   List<DataRow> _buildDataRowList(List<QueryDocumentSnapshot> newEntries) {
     // Sort the newEntries based on year and month
@@ -303,5 +422,9 @@ Future<void> _addToDatabase(BuildContext context) async {
     }
 
     return year;
+  }
+  
+  Future<User?> _getCurrentUser() async {
+    return _auth.currentUser;
   }
 }

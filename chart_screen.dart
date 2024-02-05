@@ -1,3 +1,6 @@
+import 'package:fishbook/home_screen.dart';
+import 'package:fishbook/login_screen.dart';
+import 'package:fishbook/statementsscreen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -36,7 +39,8 @@ class ChartScreen extends StatefulWidget {
 class _ChartScreenState extends State<ChartScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
+  String? organizationId;
+  bool isHomeScreen = false;
   List<Map<String, dynamic>> chartData = [];
 
   @override
@@ -85,7 +89,9 @@ class _ChartScreenState extends State<ChartScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Chart'),
+         backgroundColor: Colors.blue,
       ),
+      bottomNavigationBar: buildBottomNavigationBar(context, false),
       body: SingleChildScrollView(
         child: Padding(
           padding: EdgeInsets.all(16.0),
@@ -98,6 +104,62 @@ class _ChartScreenState extends State<ChartScreen> {
           ),
         ),
       ),
+    );
+  }
+
+BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeScreen) {
+    return BottomNavigationBar(
+      currentIndex: 0,
+      fixedColor: Colors.grey , 
+      items: [
+        BottomNavigationBarItem(
+           icon: Icon(Icons.home, color: Colors.grey), 
+          label: "Home",
+           backgroundColor: Color(0xFFF9D8C5),
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.wrap_text),
+          label: "Statements",
+           backgroundColor: Color(0xFFF9D8C5),
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.exit_to_app),
+          label: "Logout",
+           backgroundColor: Color(0xFFF9D8C5),
+        ),
+      ],
+      onTap: (index) {
+        setState(() {
+          switch (index) {
+            case 0:
+              // Navigate to HomeScreen only if it's not the current screen
+              if (!isHomeScreen) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => HomeScreen(organizationId: organizationId)),
+                );
+              }
+              break;
+            case 1:
+              // Navigate to StatementScreen
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => StatementScreen()),
+              );
+              break;
+            case 2:
+              // Logout
+              FirebaseAuth.instance.signOut().then((value) {
+                print("Signed Out");
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+                );
+              });
+              break;
+          }
+        });
+      },
     );
   }
 

@@ -1,5 +1,8 @@
 // ignore_for_file: unused_import
 
+import 'package:fishbook/home_screen.dart';
+import 'package:fishbook/login_screen.dart';
+import 'package:fishbook/statementsscreen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -15,7 +18,8 @@ class AnalyticsPage extends StatefulWidget {
 class _AnalyticsPageState extends State<AnalyticsPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
+  String? organizationId;
+  bool isHomeScreen = false;
   Map<String, Map<String, double>> analyticsData = {};
 
   @override
@@ -115,50 +119,105 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   }
 
  @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    appBar: AppBar(
-      title: Text('Finance Analytics'),
-    ),
-    body: SingleChildScrollView(
-      scrollDirection: Axis.vertical,
-      child: Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Monthly Analytics',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 20),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.vertical,
-                child: SizedBox(
-                  width: MediaQuery.of(context).size.width, // Set width to screen width
-                  child: _buildAnalyticsTable(),
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Monthly Analytics'),
+      backgroundColor: Colors.blue,
+      ),
+      bottomNavigationBar: buildBottomNavigationBar(context, false),
+      body: SingleChildScrollView(
+        scrollDirection: Axis.vertical,
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(height: 20),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.vertical,
+                  child: SizedBox(
+                    width: MediaQuery.of(context).size.width,
+                    child: _buildAnalyticsTable(),
+                  ),
                 ),
               ),
-            ),
-            ElevatedButton(
-              onPressed: _addToDatabase,
-              child: Text('Chart'),
-            ),
               SizedBox(height: 16),
-             ElevatedButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/filter'); // Navigate to FilterAnalyticsScreen
-                },
-                child: Text('Filter and Create Chart'), // Button to navigate to FilterAnalyticsScreen
+              ElevatedButton(
+                onPressed: _addToDatabase,
+                child: Text('Chart'),
               ),
-          ],
+              SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/filter');
+                },
+                child: Text('Filter and Create Chart'),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
+
+BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeScreen) {
+    return BottomNavigationBar(
+      currentIndex: 0,
+      fixedColor: Colors.grey , 
+      items: [
+        BottomNavigationBarItem(
+           icon: Icon(Icons.home, color: Colors.grey), 
+          label: "Home",
+           backgroundColor: Color(0xFFF9D8C5),
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.wrap_text),
+          label: "Statements",
+           backgroundColor: Color(0xFFF9D8C5),
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.exit_to_app),
+          label: "Logout",
+           backgroundColor: Color(0xFFF9D8C5),
+        ),
+      ],
+      onTap: (index) {
+        setState(() {
+          switch (index) {
+            case 0:
+              // Navigate to HomeScreen only if it's not the current screen
+              if (!isHomeScreen) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => HomeScreen(organizationId: organizationId)),
+                );
+              }
+              break;
+            case 1:
+              // Navigate to StatementScreen
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => StatementScreen()),
+              );
+              break;
+            case 2:
+              // Logout
+              FirebaseAuth.instance.signOut().then((value) {
+                print("Signed Out");
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+                );
+              });
+              break;
+          }
+        });
+      },
+    );
+  }
 
 Widget _buildAnalyticsTable() {
   // Convert map keys to a list of strings
@@ -190,10 +249,10 @@ Widget _buildAnalyticsTable() {
     Map<String, double> value = analyticsData[key]!;
     rows.add(DataRow(
       cells: [
-        DataCell(Text(key)),
-        DataCell(Text(value['totalRevenue'].toString())),
-        DataCell(Text(value['totalExpense'].toString())),
-        DataCell(Text(value['totalProfit'].toString())),
+        DataCell(Text(key, style: TextStyle(color: Colors.black))),
+        DataCell(Text(value['totalRevenue'].toString(), style: TextStyle(color: Colors.black))),
+        DataCell(Text(value['totalExpense'].toString(), style: TextStyle(color: Colors.black))),
+        DataCell(Text(value['totalProfit'].toString(), style: TextStyle(color: Colors.black))),
       ],
     ));
   }
@@ -202,18 +261,28 @@ Widget _buildAnalyticsTable() {
     scrollDirection: Axis.horizontal,
     child: SingleChildScrollView(
       scrollDirection: Axis.vertical,
-      child: DataTable(
-        columnSpacing: 16.0, // Adjust column spacing as needed
-        columns: [
-          DataColumn(label: Text('Month-Year')),
-          DataColumn(label: Text('Total Revenue')),
-          DataColumn(label: Text('Total Expense')),
-          DataColumn(label: Text('Total Profit')),
-        ],
-        rows: rows,
+ child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.black), // Add black border around the table
+          ),
+          child: DataTable(
+            showCheckboxColumn: false,
+            columnSpacing: 16.0,
+            headingRowColor: MaterialStateColor.resolveWith((states) => Color(0xFFF9D8C5)), // Set header row color
+            dividerThickness: 1.0, // Add separator lines between columns
+          
+          columns: [
+            DataColumn(label: Text('Month-Year', style: TextStyle(color: Colors.black))),
+            DataColumn(label: Text('Total Revenue', style: TextStyle(color: Colors.black))),
+            DataColumn(label: Text('Total Expense', style: TextStyle(color: Colors.black))),
+            DataColumn(label: Text('Total Profit', style: TextStyle(color: Colors.black))),
+          ],
+          rows: rows,
+        ),
       ),
     ),
   );
 }
+
 
 }

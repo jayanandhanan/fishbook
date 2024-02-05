@@ -1,3 +1,6 @@
+import 'package:fishbook/home_screen.dart';
+import 'package:fishbook/login_screen.dart';
+import 'package:fishbook/statementsscreen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -12,6 +15,7 @@ class _WorkManagementPageState extends State<WorkManagementPage> {
   final TextEditingController dateController = TextEditingController();
   final TextEditingController workController = TextEditingController();
   final TextEditingController amountController = TextEditingController();
+  final TextEditingController paymentdateController = TextEditingController();
   final TextEditingController selectedPaymentDateController = TextEditingController();
   final TextEditingController inchargeController = TextEditingController();
   final TextEditingController selectedDateController = TextEditingController();
@@ -52,6 +56,8 @@ class _WorkManagementPageState extends State<WorkManagementPage> {
   bool isOwnerInChargeFilterActive = false;
   bool isCrewMemberInChargeFilterActive = false;
   String? userRole; 
+  String? organizationId;
+  bool isHomeScreen = false;
 
   @override
   void initState() {
@@ -77,7 +83,9 @@ class _WorkManagementPageState extends State<WorkManagementPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Work Management'),
+        backgroundColor: Colors.blue,
       ),
+      bottomNavigationBar: buildBottomNavigationBar(context),
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -228,6 +236,62 @@ class _WorkManagementPageState extends State<WorkManagementPage> {
     );
   }
 
+BottomNavigationBar buildBottomNavigationBar(BuildContext context) {
+    return BottomNavigationBar(
+      currentIndex: 0,
+      fixedColor: Colors.grey , 
+      items: [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.home, color: Colors.grey), 
+          label: "Home",
+          backgroundColor: Color(0xFFF9D8C5),
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.wrap_text),
+          label: "Statements",
+          backgroundColor: Color(0xFFF9D8C5),
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.exit_to_app),
+          label: "Logout",
+          backgroundColor: Color(0xFFF9D8C5),
+        ),
+      ],
+      onTap: (index) {
+        switch (index) {
+          case 0:
+            // Navigate to HomeScreen
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => HomeScreen(organizationId: organizationId),
+              ),
+            );
+            break;
+          case 1:
+            // Navigate to StatementScreen
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => StatementScreen(),
+              ),
+            );
+            break;
+          case 2:
+            // Logout
+            FirebaseAuth.instance.signOut().then((value) {
+              print("Signed Out");
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+              );
+            });
+            break;
+        }
+      },
+    );
+  }
+
   Widget _buildWorkTable() {
     return StreamBuilder<QuerySnapshot>(
       stream: _getWorkStream(),
@@ -272,14 +336,23 @@ if (isCrewMemberInChargeFilterActive && filterByCrewMemberInCharge != null && fi
   workList = workList.where((work) => work['incharge'] == filterByCrewMemberInCharge).toList();
 }
           return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              showCheckboxColumn: false,
+             scrollDirection: Axis.horizontal,
+    child: SingleChildScrollView(
+      scrollDirection: Axis.vertical,
+ child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.black), // Add black border around the table
+          ),
+          child: DataTable(
+            showCheckboxColumn: false,
+            columnSpacing: 16.0,
+            headingRowColor: MaterialStateColor.resolveWith((states) => Color(0xFFF9D8C5)), // Set header row color
+            dividerThickness: 1.0, // Add separator lines between columns
+          
               columns: _buildTableColumns(),
-              columnSpacing: 16.0,
               rows: _buildTableRows(workList),
             ),
-          );
+          ),),);
         }
       },
     );
@@ -303,6 +376,11 @@ if (isCrewMemberInChargeFilterActive && filterByCrewMemberInCharge != null && fi
   }
 
  List<DataRow> _buildTableRows(List<DocumentSnapshot> workList) {
+   workList.sort((a, b) {
+    DateTime dateA = (a['date'] as Timestamp).toDate();
+    DateTime dateB = (b['date'] as Timestamp).toDate();
+    return dateA.compareTo(dateB);
+  });
   List<DataRow> rows = [];
 
   workList.forEach((work) {
@@ -357,6 +435,39 @@ if (isCrewMemberInChargeFilterActive && filterByCrewMemberInCharge != null && fi
       },
     );
   }
+
+ Widget _buildDateField(BuildContext context) {
+  return TextFormField(
+    controller: selectedDateController, // Set the controller
+    readOnly: true, // Make the field read-only
+    decoration: InputDecoration(
+      labelText: 'Date',
+      suffixIcon: IconButton(
+        onPressed: () async {
+          final DateTime? picked = await showDatePicker(
+            context: context,
+            initialDate: selectedDate,
+            firstDate: DateTime(2015, 8),
+            lastDate: DateTime(2101),
+          );
+          if (picked != null && picked != selectedDate) {
+            setState(() {
+              selectedDate = picked;
+              selectedDateController.text = DateFormat('dd-MM-yyyy').format(selectedDate);
+            });
+          }
+        },
+        icon: Icon(Icons.calendar_today),
+      ),
+    ),
+    validator: (value) {
+      if (value == null || value.isEmpty) {
+        return 'Please select a date';
+      }
+      return null;
+    },
+  );
+}
 
 Widget _buildPaymentDateField(BuildContext context) {
   return TextFormField(
@@ -521,7 +632,7 @@ Widget _buildPaymentDateField(BuildContext context) {
       amountController.clear();
       paidAmountController.clear();
       selectedPaymentOption = 'Paid';
-      selectedPaymentDateController.clear();
+      paymentdateController.clear();
       selectedModeOfPayment = 'Cash';
       inchargeController.clear();
     });
@@ -751,38 +862,7 @@ Widget _buildFilterByProgressDialog(BuildContext context) {
     );
   }
 
- Widget _buildDateField(BuildContext context) {
-  return TextFormField(
-    controller: selectedDateController, // Set the controller
-    readOnly: true, // Make the field read-only
-    decoration: InputDecoration(
-      labelText: 'Date',
-      suffixIcon: IconButton(
-        onPressed: () async {
-          final DateTime? picked = await showDatePicker(
-            context: context,
-            initialDate: selectedDate,
-            firstDate: DateTime(2015, 8),
-            lastDate: DateTime(2101),
-          );
-          if (picked != null && picked != selectedDate) {
-            setState(() {
-              selectedDate = picked;
-              selectedDateController.text = DateFormat('dd-MM-yyyy').format(selectedDate);
-            });
-          }
-        },
-        icon: Icon(Icons.calendar_today),
-      ),
-    ),
-    validator: (value) {
-      if (value == null || value.isEmpty) {
-        return 'Please select a date';
-      }
-      return null;
-    },
-  );
-}
+
 
   Widget _buildTextField(String label, TextEditingController controller) {
     return TextFormField(
@@ -1003,7 +1083,7 @@ void editWorkDialog(BuildContext context, DocumentSnapshot work) {
   amountController.text = work['amount'];
   paidAmountController.text = work['paidamount'];
   selectedPaymentOption = work['payment'];
-  selectedPaymentDateController.text = _formatDate((work['date'] as Timestamp).toDate());
+  selectedPaymentDateController.text = _formatDate((work['paymentdate'] as Timestamp).toDate());
   selectedModeOfPayment = work['modeofpayment'];
   selectedInChargeId = work.id;
   selectedInChargeName = work['incharge'];
@@ -1111,7 +1191,7 @@ void editWorkDialog(BuildContext context, DocumentSnapshot work) {
         'amount': amountController.text,
         'payment': selectedPaymentOption,
         'modeofpayment': selectedModeOfPayment,
-        'paymentDate': selectedPaymentDate,
+        'paymentdate': selectedPaymentDate,
        'paidamount': paidAmount,
        'pendingamount': pendingAmount,
         'progress': selectedProgressOption,
@@ -1133,7 +1213,7 @@ setState(() {
       amountController.clear();
       paidAmountController.clear();
       selectedPaymentOption = 'Paid';
-      selectedPaymentDateController.clear();
+      paymentdateController.clear();
       selectedModeOfPayment = 'Cash';
       inchargeController.clear();
       });

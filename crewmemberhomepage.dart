@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:fishbook/notificationsscreen.dart';
+
 import 'package:fishbook/statementsscreen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fishbook/login_screen.dart';
@@ -199,15 +199,7 @@ class _CrewmemberHomePageState extends State<CrewmemberHomePage> {
               ),
             );
             break;
-          case 2:
-            // Navigate to NotificationsScreen
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => NotificationsScreen(),
-              ),
-            );
-            break;
+          
          
         }
       },

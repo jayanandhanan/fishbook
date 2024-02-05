@@ -1,114 +1,185 @@
-import 'package:fishbook/databasescreen.dart';
-import 'package:fishbook/idscreen.dart';
-import 'package:fishbook/newentryscreen.dart';
-import 'package:fishbook/fishingsailpayment.dart';
-import 'package:fishbook/notificationsscreen.dart';
+// ignore_for_file: unused_field
+
 import 'package:fishbook/statementsscreen.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fishbook/login_screen.dart';
 import 'owner_details.dart'; // Import the correct path
 import 'crewmemberspage.dart'; // Import the correct path
 import 'financepage.dart'; // Import the correct path
 import 'workmanagementpage.dart'; // Import the correct path
 import 'profilescreen.dart'; // Import the correct path
+import 'databasescreen.dart'; // Import the correct path
+import 'fishingsailpayment.dart'; // Import the correct path
+import 'newentryscreen.dart'; // Import the correct path
+import 'idscreen.dart'; // Import the correct path
+import 'myworkscreen.dart'; // Import the correct path
+import 'myfishingsailscreen.dart'; // Import the correct path
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key, required organizationId}) : super(key: key);
+  const HomeScreen({Key? key, required this.organizationId}) : super(key: key);
+
+  final String? organizationId;
 
   @override
   _HomeScreenState createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-
+  late String _userName = '';
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>(); // Add this line
+  bool isHomeScreen = true;
+  
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      key: _scaffoldKey,
-      appBar: buildAppBar(),
-      drawer: buildDrawer(),
-      bottomNavigationBar: buildBottomNavigationBar(),
-      backgroundColor: Color.fromARGB(255, 255, 255, 255),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+  void initState() {
+    super.initState();
+    _fetchUserData();
+  }
+
+ Future<void> _fetchUserData() async {
+  final User? user = FirebaseAuth.instance.currentUser;
+
+  if (user != null) {
+    FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots().listen((snapshot) {
+      if (snapshot.exists) {
+        setState(() {
+          _userName = snapshot.data()?['name'] ?? '';
+        });
+      }
+    });
+  }
+}
+
+
+ @override
+Widget build(BuildContext context) {
+  return Scaffold(
+    key: _scaffoldKey, // Add this line
+    appBar: PreferredSize(
+  preferredSize: Size.fromHeight(100),
+  child: AppBar(
+    title: Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              buildFinanceContainer(),
-              buildWorkContainer(),
-              buildDatabaseContainer(),
-              buildFishingSailPaymentContainer(),
-              
-            ],
-          ),
-          SizedBox(height: 20),
-          buildNewEntryContainer(),
-          SizedBox(height: 20),
-          buildOrganizationIdContainer(),
-          SizedBox(height: 20),
-          buildPendingContainer("Pending Works"),
-          buildPendingContainer("Pending Income"),
-          buildPendingContainer("Pending Statement"),
-          SizedBox(height: 20),
+          _userName.isNotEmpty ? Text('Hello $_userName ') : Text('Hello There', style: TextStyle(fontSize: 24)), // Larger font size
+          Text('Welcome back!!', style: TextStyle(fontSize: 12, color: Colors.black)), // Smaller font size
         ],
       ),
-    );
-  }
-
-  AppBar buildAppBar() {
-    return AppBar(
-      title: Text(
-        'FishBook',
-        style: TextStyle(
-          color: Color(0xFFF20485A),
-          fontSize: 25,
-          fontWeight: FontWeight.bold,
+    ),
+        backgroundColor: Colors.blue,
+        centerTitle: false, // Set to false to align the text to the left
+        elevation: 0.5,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.only(
+            bottomRight: Radius.circular(50),
+          ),
         ),
-      ),
-      backgroundColor: Color(0xFFF9D8C5),
-      centerTitle: true,
-      elevation: 0.5,
-      leading: GestureDetector(
-        onTap: () {
-          _scaffoldKey.currentState?.openDrawer();
-        },
-        child: Container(
-          margin: EdgeInsets.all(10),
-          child: SvgPicture.asset(
-            'assets/hamburger-menu.svg',
+        leading: GestureDetector(
+          onTap: () {
+            _scaffoldKey.currentState?.openDrawer(); // Use the scaffold key here
+          },
+          child: Icon(
+            CupertinoIcons.text_justifyleft,
             color: Colors.black,
-          ),
-          height: 28,
-          width: 28,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: Color(0xFFF9D8C5),
-            borderRadius: BorderRadius.circular(10),
+            size: 30, // Increase the size of the icon
           ),
         ),
+        actions: [
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => ProfileScreen()),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12), // Adjust padding for spacing
+              child: Icon(
+                CupertinoIcons.profile_circled,
+                color: Colors.black,
+                size: 35, // Increase the size of the icon
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
-      actions: [buildDashboardIcon(context), buildLogoutButton()],
+      drawer: buildDrawer(context),
+      bottomNavigationBar: buildBottomNavigationBar(context, isHomeScreen), // Pass the boolean variable
+      backgroundColor: Colors.white,
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              color: Colors.white,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 30),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(
+                    bottomRight: Radius.circular(50),
+                  ),
+                ),
+                child: GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 40,
+                  mainAxisSpacing: 30,
+                  children: [
+                    itemDashboard('Finance', Icons.account_balance_wallet, Colors.deepOrange, () {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => FinancePage()));
+                    }),
+                    itemDashboard('Work', Icons.work, Colors.green, () {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => WorkManagementPage()));
+                    }),
+                    itemDashboard('Database', Icons.storage, Colors.blue, () {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => DatabaseScreen()));
+                    }),
+                    itemDashboard('Fishing Payment', Icons.attach_money, Colors.indigo, () {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => FishingSailPayment()));
+                    }),
+                    itemDashboard('New Entry', Icons.add, Colors.orange, () {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => NewEntryScreen()));
+                    }),
+                    itemDashboard('Organization IDs', Icons.credit_card, Colors.yellow, () {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => IDScreen()));
+                    }),
+                    itemDashboard('My Work', Icons.work, Colors.purple, () {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => MyWorkScreen()));
+                    }),
+                    itemDashboard('My Fishing Payment', Icons.monetization_on, Colors.teal, () {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => MyFishingSailScreen()));
+                    }),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20)
+          ],
+        ),
+      ),
     );
   }
 
-  Drawer buildDrawer() {
+  Drawer buildDrawer(BuildContext context) {
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
           DrawerHeader(
             decoration: BoxDecoration(
-              color: Color(0xFFF9D8C5),
+              color: Colors.blue,
             ),
             child: Text(
               'Dashboard',
               style: TextStyle(
-                color: Color(0xFFF20485A),
+                color: Colors.black,
                 fontSize: 25,
                 fontWeight: FontWeight.bold,
               ),
@@ -143,57 +214,13 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  GestureDetector buildDashboardIcon(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(context, MaterialPageRoute(builder: (context) => ProfileScreen()));
-      },
-      child: Container(
-        margin: EdgeInsets.all(10),
-        child: SvgPicture.asset('assets/user-profile.svg'),
-        height: 36,
-        width: 36,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: Color(0xFFF9D8C5),
-          borderRadius: BorderRadius.circular(10),
-        ),
-      ),
-    );
-  }
-
-  Widget buildLogoutButton() {
-    return GestureDetector(
-      onTap: () {
-        FirebaseAuth.instance.signOut().then((value) {
-          print("Signed Out");
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
-          );
-        });
-      },
-      child: Container(
-        margin: EdgeInsets.all(10),
-        child: Icon(Icons.logout, color: Colors.black),
-        height: 36,
-        width: 36,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: Color(0xFFF9D8C5),
-          borderRadius: BorderRadius.circular(18),
-        ),
-      ),
-    );
-  }
-
-  BottomNavigationBar buildBottomNavigationBar() {
+  BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeScreen) {
     return BottomNavigationBar(
       currentIndex: 0,
-      fixedColor: Color(0x862195F3),
+      fixedColor: Colors.blue, // Set color based on the boolean variable
       items: [
         BottomNavigationBarItem(
-          icon: Icon(Icons.home_filled),
+          icon: Icon(Icons.home),
           label: "Home",
           backgroundColor: Color(0xFFF9D8C5),
         ),
@@ -203,22 +230,23 @@ class _HomeScreenState extends State<HomeScreen> {
           backgroundColor: Color(0xFFF9D8C5),
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.notification_important_rounded),
-          label: "Notifications",
+          icon: Icon(Icons.exit_to_app),
+          label: "Logout",
           backgroundColor: Color(0xFFF9D8C5),
         ),
-       
       ],
       onTap: (index) {
         switch (index) {
           case 0:
-            // Navigate to HomeScreen
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => HomeScreen(organizationId: null,),
-              ),
-            );
+            // Navigate to HomeScreen only if it's not the current screen
+            if (!isHomeScreen) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => HomeScreen(organizationId: widget.organizationId),
+                ),
+              );
+            }
             break;
           case 1:
             // Navigate to StatementScreen
@@ -230,175 +258,57 @@ class _HomeScreenState extends State<HomeScreen> {
             );
             break;
           case 2:
-            // Navigate to NotificationsScreen
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => NotificationsScreen(),
-              ),
-            );
+            // Logout
+            FirebaseAuth.instance.signOut().then((value) {
+              print("Signed Out");
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+              );
+            });
             break;
-         
         }
       },
     );
   }
 
-  Widget buildFinanceContainer() {
+  Widget itemDashboard(String title, IconData iconData, Color background, Function onTap) {
     return GestureDetector(
-      onTap: () {
-        // Navigate to FinancePage
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => FinancePage(),
-          ),
-        );
-      },
+      onTap: () => onTap(),
       child: Container(
-        width: 80,
-        height: 60,
-        color: Colors.blue,
-        child: Center(
-          child: Text(
-            'Finance',
-            style: TextStyle(color: Colors.white),
-          ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+              offset: const Offset(0, 5),
+              color: Colors.grey.withOpacity(.2),
+              spreadRadius: 2,
+              blurRadius: 5,
+            )
+          ],
         ),
-      ),
-    );
-  }
-
-
- Widget buildDatabaseContainer() {
-    return GestureDetector(
-      onTap: () {
-        // Navigate to FinancePage
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => DatabaseScreen(),
-          ),
-        );
-      },
-      child: Container(
-        width: 80,
-        height: 60,
-        color: Colors.blue,
-        child: Center(
-          child: Text(
-            'Database',
-            style: TextStyle(color: Colors.white),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget buildWorkContainer() {
-    return GestureDetector(
-      onTap: () {
-        // Navigate to WorkManagementPage
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => WorkManagementPage(),
-          ),
-        );
-      },
-      child: Container(
-        width: 80,
-        height: 60,
-        color: Colors.green,
-        child: Center(
-          child: Text(
-            'Work',
-            style: TextStyle(color: Colors.white),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget buildNewEntryContainer() {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => NewEntryScreen(),
-          ),
-        );
-      },
-      child: Container(
-        height: 100,
-        color: Colors.orange,
-        child: Center(
-          child: Text(
-            'New Entry',
-            style: TextStyle(color: Colors.white),
-          ),
-        ),
-      ),
-    );
-  }
-  Widget buildOrganizationIdContainer() {
-    return GestureDetector(
-      onTap: () {
-        // Navigate to IDCScreen
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => IDScreen(),
-          ),
-        );
-      },
-      child: Container(
-        width: 80,
-        height: 60,
-        color: Colors.yellow, // Changed color for identification
-        child: Center(
-          child: Text(
-            'Organization IDs',
-            style: TextStyle(color: Colors.black),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget buildFishingSailPaymentContainer() {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => FishingSailPayment(), // Navigate to FishingSailPaymentPage
-          ),
-        );
-      },
-      child: Container(
-        width: 80,
-        height: 60,
-        color: Colors.blue,
-        child: Center(
-          child: Text(
-            'Fishing Sail Payment',
-            style: TextStyle(color: Colors.white),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget buildPendingContainer(String title) {
-    return Container(
-      height: 80,
-      color: Colors.white,
-      child: Center(
-        child: Text(
-          title,
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: background,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(iconData, color: Colors.white, size: 40),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title.toUpperCase(),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+            ),
+          ],
         ),
       ),
     );

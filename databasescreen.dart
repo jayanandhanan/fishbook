@@ -1,4 +1,7 @@
 // ignore_for_file: unused_local_variable
+import 'package:fishbook/home_screen.dart';
+import 'package:fishbook/login_screen.dart';
+import 'package:fishbook/statementsscreen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -11,6 +14,8 @@ class DatabaseScreen extends StatefulWidget {
 class _DatabaseScreenState extends State<DatabaseScreen> {
    String organizationId = ''; // To store the organizationId of the current user
    String role ='';
+   bool isHomeScreen = false;
+   DateTime? selectedDate;
   @override
   void initState() {
     super.initState();
@@ -93,12 +98,126 @@ class _DatabaseScreenState extends State<DatabaseScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Database Screen'),
+        backgroundColor: Colors.blue,
       ),
+      bottomNavigationBar: buildBottomNavigationBar(context, false),
       body: organizationId.isEmpty
           ? Center(child: CircularProgressIndicator())
-          : _buildDatabaseScreen(),
+          : Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () => _showFilterDialog(),
+                        child: Text('Filter'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => _resetFilter(),
+                        child: Text('Reset Filter'),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: _buildDatabaseScreen(),
+                ),
+              ],
+            ),
     );
   }
+
+BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeScreen) {
+    return BottomNavigationBar(
+      currentIndex: 0,
+      fixedColor: Colors.grey , 
+      items: [
+        BottomNavigationBarItem(
+           icon: Icon(Icons.home, color: Colors.grey), 
+          label: "Home",
+           backgroundColor: Color(0xFFF9D8C5),
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.wrap_text),
+          label: "Statements",
+           backgroundColor: Color(0xFFF9D8C5),
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.exit_to_app),
+          label: "Logout",
+           backgroundColor: Color(0xFFF9D8C5),
+        ),
+      ],
+      onTap: (index) {
+        setState(() {
+          switch (index) {
+            case 0:
+              // Navigate to HomeScreen only if it's not the current screen
+              if (!isHomeScreen) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => HomeScreen(organizationId: organizationId)),
+                );
+              }
+              break;
+            case 1:
+              // Navigate to StatementScreen
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => StatementScreen()),
+              );
+              break;
+            case 2:
+              // Logout
+              FirebaseAuth.instance.signOut().then((value) {
+                print("Signed Out");
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+                );
+              });
+              break;
+          }
+        });
+      },
+    );
+  }
+
+
+void _showFilterDialog() async {
+  DateTime? pickedDate = await showDatePicker(
+    context: context,
+    initialDate: selectedDate ?? DateTime.now(),
+    firstDate: DateTime(2000),
+    lastDate: DateTime(2101),
+  );
+
+  if (pickedDate != null) {
+    setState(() {
+      selectedDate = pickedDate;
+    });
+  }
+}
+
+void _filterBySailingDate(DateTime date) {
+  setState(() {
+    selectedDate = date;
+  });
+}
+  // Method to reset the filter
+  void _resetFilter() {
+    setState(() {
+      selectedDate = null;
+    });
+  }
+
+bool _isSameDay(DateTime date1, DateTime date2) {
+  return date1.year == date2.year &&
+      date1.month == date2.month &&
+      date1.day == date2.day;
+}
 
 Widget _buildDatabaseScreen() {
   return StreamBuilder<QuerySnapshot>(
@@ -117,6 +236,15 @@ Widget _buildDatabaseScreen() {
       }
 
       var documents = snapshot.data!.docs;
+
+       // Filter documents based on selected date
+      if (selectedDate != null) {
+        documents = documents
+            .where((doc) =>
+                doc['sailingdate'] != null &&
+                _isSameDay(doc['sailingdate'].toDate(), selectedDate!))
+            .toList();
+      }
 
       return SingleChildScrollView(
         scrollDirection: Axis.vertical,
@@ -524,9 +652,19 @@ Widget _buildRevenueExpenseTable(String documentId) {
           var expenseSnapshot = snapshot.data![1];
 
           return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              columnSpacing: 16.0, // Adjust the spacing between columns
+             scrollDirection: Axis.horizontal,
+    child: SingleChildScrollView(
+      scrollDirection: Axis.vertical,
+ child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.black), // Add black border around the table
+          ),
+          child: DataTable(
+            showCheckboxColumn: false,
+            columnSpacing: 16.0,
+            headingRowColor: MaterialStateColor.resolveWith((states) => Color(0xFFF9D8C5)), // Set header row color
+            dividerThickness: 1.0, // Add separator lines between columns
+          
               columns: [
                 DataColumn(label: Text('Revenue Amount')),
                 DataColumn(label: Text('Expense Name')),
@@ -537,7 +675,7 @@ Widget _buildRevenueExpenseTable(String documentId) {
               rows: _buildRevenueExpenseRows(
                 documentId, revenueSnapshot, expenseSnapshot),
             ),
-          );
+          ),),);
         },
       ),
       SizedBox(height: 10),
@@ -914,9 +1052,19 @@ Widget _buildCrewMembersTable(String documentId) {
           var documents = snapshot.data!.docs;
 
           return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              columnSpacing: 16.0, // Adjust the spacing between columns
+ scrollDirection: Axis.horizontal,
+    child: SingleChildScrollView(
+      scrollDirection: Axis.vertical,
+ child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.black), // Add black border around the table
+          ),
+          child: DataTable(
+            showCheckboxColumn: false,
+            columnSpacing: 16.0,
+            headingRowColor: MaterialStateColor.resolveWith((states) => Color(0xFFF9D8C5)), // Set header row color
+            dividerThickness: 1.0, // Add separator lines between columns
+          
               columns: [
                 DataColumn(label: Text('Name')),
                 DataColumn(label: Text('Email')),
@@ -927,7 +1075,7 @@ Widget _buildCrewMembersTable(String documentId) {
               ],
               rows: _buildCrewMembersRows(documents,documentId),
             ),
-          );
+          ),),);
         },
       ),
       SizedBox(height: 20), // Add spacing between DataTable and button
@@ -1376,8 +1524,19 @@ Widget _buildOwnersShareTable(String documentId) {
 
                 var documents = snapshot.data!.docs;
 
-                return DataTable(
-                  columnSpacing: 16.0,
+               return SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: SingleChildScrollView(
+      scrollDirection: Axis.vertical,
+ child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.black), // Add black border around the table
+          ),
+          child: DataTable(
+            showCheckboxColumn: false,
+            columnSpacing: 16.0,
+            headingRowColor: MaterialStateColor.resolveWith((states) => Color(0xFFF9D8C5)), // Set header row color
+            dividerThickness: 1.0, // Add separator lines between columns
                   columns: [
                     DataColumn(label: Text('Name')),
                     DataColumn(label: Text('Email')),
@@ -1390,7 +1549,7 @@ Widget _buildOwnersShareTable(String documentId) {
                     DataColumn(label: Text('Actions')), // New column for actions
                   ],
                   rows: _buildOwnersShareRows(documents, documentId),
-                );
+                ),),),);
               },
             ),
             SizedBox(height: 20), // Add spacing between DataTable and button

@@ -1,3 +1,6 @@
+import 'package:fishbook/home_screen.dart';
+import 'package:fishbook/login_screen.dart';
+import 'package:fishbook/statementsscreen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -16,6 +19,8 @@ class _FilterAnalyticsPageState extends State<FilterAnalyticsPage> {
 
   int? selectedYear;
   String? selectedMonth;
+  String? organizationId;
+  bool isHomeScreen = false;
 
   List<int> years = [];
   List<String> months = [
@@ -112,7 +117,9 @@ class _FilterAnalyticsPageState extends State<FilterAnalyticsPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Filtered Analytics'),
+        backgroundColor: Colors.blue,
       ),
+      bottomNavigationBar: buildBottomNavigationBar(context, false),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -170,11 +177,69 @@ class _FilterAnalyticsPageState extends State<FilterAnalyticsPage> {
               },
               child: Text('Chart'),
             ),
+            
           ],
         ),
       ),
     );
   }
+
+BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeScreen) {
+    return BottomNavigationBar(
+      currentIndex: 0,
+      fixedColor: Colors.grey , 
+      items: [
+        BottomNavigationBarItem(
+           icon: Icon(Icons.home, color: Colors.grey), 
+          label: "Home",
+           backgroundColor: Color(0xFFF9D8C5),
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.wrap_text),
+          label: "Statements",
+           backgroundColor: Color(0xFFF9D8C5),
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.exit_to_app),
+          label: "Logout",
+           backgroundColor: Color(0xFFF9D8C5),
+        ),
+      ],
+      onTap: (index) {
+        setState(() {
+          switch (index) {
+            case 0:
+              // Navigate to HomeScreen only if it's not the current screen
+              if (!isHomeScreen) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => HomeScreen(organizationId: organizationId)),
+                );
+              }
+              break;
+            case 1:
+              // Navigate to StatementScreen
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => StatementScreen()),
+              );
+              break;
+            case 2:
+              // Logout
+              FirebaseAuth.instance.signOut().then((value) {
+                print("Signed Out");
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+                );
+              });
+              break;
+          }
+        });
+      },
+    );
+  }
+
 
  Widget _buildFilteredAnalyticsTable() {
   List<String> sortedKeys = filteredAnalyticsData.keys.toList();
@@ -213,23 +278,36 @@ class _FilterAnalyticsPageState extends State<FilterAnalyticsPage> {
     ));
   }
 
-  return SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: SingleChildScrollView(
-      scrollDirection: Axis.vertical,
-      child: DataTable(
-        columnSpacing: 16.0, // Adjust column spacing as needed
-        columns: [
-          DataColumn(label: Text('Month-Year')),
-          DataColumn(label: Text('Total Revenue')),
-          DataColumn(label: Text('Total Expense')),
-          DataColumn(label: Text('Total Profit')),
-        ],
-        rows: rows,
+     return SingleChildScrollView(
+       scrollDirection: Axis.horizontal,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.black), // Add black border around the table
+          ),
+          child: DataTable(
+            showCheckboxColumn: false,
+            columnSpacing: 16.0,
+            headingRowColor: MaterialStateColor.resolveWith((states) => Color(0xFFF9D8C5)), // Set header row color
+            dividerThickness: 1.0, // Add separator lines between columns
+          columns: [
+            DataColumn(
+              label: Text('Month-Year', style: TextStyle(color: Colors.black)),
+            ),
+            DataColumn(
+              label: Text('Total Revenue', style: TextStyle(color: Colors.black)),
+            ),
+            DataColumn(
+              label: Text('Total Expense', style: TextStyle(color: Colors.black)),
+            ),
+            DataColumn(
+              label: Text('Total Profit', style: TextStyle(color: Colors.black)),
+            ),
+          ],
+          rows: rows,
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Future<void> _addToDatabase() async {
     try {

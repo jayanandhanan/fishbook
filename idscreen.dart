@@ -1,17 +1,48 @@
+import 'package:fishbook/home_screen.dart';
+import 'package:fishbook/login_screen.dart';
+import 'package:fishbook/statementsscreen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class IDScreen extends StatelessWidget {
-  final String userId = FirebaseAuth.instance.currentUser!.uid;
+class IDScreen extends StatefulWidget {
+  @override
+  _IDScreenState createState() => _IDScreenState();
+}
+
+class _IDScreenState extends State<IDScreen> {
+  late String userId;
+  String? organizationId;
+  bool isHomeScreen=false;
+  String? role ;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchOrganizationId();
+    userId = FirebaseAuth.instance.currentUser!.uid;
+    isHomeScreen = false;
+  }
+
+Future<String?> _fetchOrganizationId() async {
+    String? userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId != null) {
+      DocumentSnapshot userSnapshot =
+          await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      return userSnapshot['organizationId'];
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Organization IDs'),
+       backgroundColor: Colors.blue,
       ),
+      bottomNavigationBar: buildBottomNavigationBar(context,false),
       body: FutureBuilder<DocumentSnapshot>(
         future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
         builder: (context, snapshot) {
@@ -25,6 +56,8 @@ class IDScreen extends StatelessWidget {
 
           var userData = snapshot.data!.data() as Map<String, dynamic>;
           String organizationId = userData['organizationId'];
+          // Fetch user's role
+        String? role = userData['role'];
 
           if (organizationId == null) {
             return Center(child: Text('Organization ID not found for the user'));
@@ -51,6 +84,63 @@ class IDScreen extends StatelessWidget {
     );
   }
 
+BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeScreen) {
+    return BottomNavigationBar(
+      currentIndex: 0,
+      fixedColor: Colors.grey , 
+      items: [
+        BottomNavigationBarItem(
+           icon: Icon(Icons.home, color: Colors.grey), 
+          label: "Home",
+           backgroundColor: Color(0xFFF9D8C5),
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.wrap_text),
+          label: "Statements",
+           backgroundColor: Color(0xFFF9D8C5),
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.exit_to_app),
+          label: "Logout",
+           backgroundColor: Color(0xFFF9D8C5),
+        ),
+      ],
+      onTap: (index) {
+        setState(() {
+          switch (index) {
+            case 0:
+              // Navigate to HomeScreen only if it's not the current screen
+              if (!isHomeScreen) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => HomeScreen(organizationId: organizationId)),
+                );
+              }
+              break;
+            case 1:
+              // Navigate to StatementScreen
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => StatementScreen()),
+              );
+              break;
+            case 2:
+              // Logout
+              FirebaseAuth.instance.signOut().then((value) {
+                print("Signed Out");
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+                );
+              });
+              break;
+          }
+        });
+      },
+    );
+  }
+
+
   Widget displayOrganizationDetails(BuildContext context, Map<String, dynamic> orgData) {
     return SingleChildScrollView(
       child: Padding(
@@ -60,8 +150,10 @@ class IDScreen extends StatelessWidget {
           children: [
             SizedBox(height: 20),
             _buildTextField(context, 'Organization ID', orgData['organizationId']),
+            if(role != 'Crewmember' )
             SizedBox(height: 10),
             _buildTextField(context, 'Co-Owner ID', orgData['coownerId']),
+            if(role != 'Co-owner' )
             SizedBox(height: 10),
             _buildTextField(context, 'Crew Member ID', orgData['crewmemberId']),
           ],

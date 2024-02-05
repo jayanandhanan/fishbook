@@ -1,5 +1,8 @@
 // ignore_for_file: unused_local_variable, unnecessary_null_comparison
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:fishbook/home_screen.dart';
+import 'package:fishbook/login_screen.dart';
+import 'package:fishbook/statementsscreen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:math';
@@ -19,6 +22,8 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   TextEditingController crewNameController = TextEditingController();
   TextEditingController crewPhoneController = TextEditingController();
   TextEditingController crewAmountController = TextEditingController();
+  String? organizationId;
+  bool isHomeScreen = false;
 
   String selectedMonth = 'Jan';
   DateTime? selectedSailingDate;
@@ -50,17 +55,29 @@ Map<String, TextEditingController> ownerInvestmentControllers = {};
 @override
 void dispose() {
   super.dispose();
- 
+ _fetchOrganizationId();
   crewAmountControllers.values.forEach((controller) => controller.dispose());
   ownerInvestmentControllers.values.forEach((controller) => controller.dispose());
 }
+
+Future<String?> _fetchOrganizationId() async {
+    String? userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId != null) {
+      DocumentSnapshot userSnapshot =
+          await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      return userSnapshot['organizationId'];
+    }
+    return null;
+  }
 
 @override
  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Add New Entry'),
+       backgroundColor: Colors.blue,
       ),
+      bottomNavigationBar: buildBottomNavigationBar(context,false),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -171,9 +188,19 @@ void dispose() {
  SizedBox(height: 20),
               // DataTable to display entered expenses and revenues
             SingleChildScrollView(
-  scrollDirection: Axis.horizontal,
-  child: DataTable(
-    columnSpacing: 16.0,
+   scrollDirection: Axis.horizontal,
+    child: SingleChildScrollView(
+      scrollDirection: Axis.vertical,
+ child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.black), // Add black border around the table
+          ),
+          child: DataTable(
+            showCheckboxColumn: false,
+            columnSpacing: 16.0,
+            headingRowColor: MaterialStateColor.resolveWith((states) => Color(0xFFF9D8C5)), // Set header row color
+            dividerThickness: 1.0, // Add separator lines between columns
+          
     columns: [
       DataColumn(label: Text('Revenue Amount')),
       DataColumn(label: Text('Expense Name')),
@@ -181,7 +208,7 @@ void dispose() {
       DataColumn(label: Text('Action')),
     ],
     rows: _buildDataRows(),
-  ),
+  ),),)
 ),
               SizedBox(height: 20),
               // Display Total Profit
@@ -199,9 +226,19 @@ void dispose() {
               ),
               if (selectedCrewMemberIds.isNotEmpty)
               SingleChildScrollView(
-  scrollDirection: Axis.horizontal,
-  child: DataTable(
-    columnSpacing: 16.0, // Adjust the spacing between columns as needed
+   scrollDirection: Axis.horizontal,
+    child: SingleChildScrollView(
+      scrollDirection: Axis.vertical,
+ child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.black), // Add black border around the table
+          ),
+          child: DataTable(
+            showCheckboxColumn: false,
+            columnSpacing: 16.0,
+            headingRowColor: MaterialStateColor.resolveWith((states) => Color(0xFFF9D8C5)), // Set header row color
+            dividerThickness: 1.0, // Add separator lines between columns
+          
     columns: [
       DataColumn(label: Text('Name')),
       DataColumn(label: Text('Phone')),
@@ -209,7 +246,7 @@ void dispose() {
       DataColumn(label: Text('Amount')),
     ],
     rows: _buildCrewMembersRows(),
-  ),
+  ),),)
 ),
               SizedBox(height: 20),
 
@@ -223,9 +260,19 @@ void dispose() {
 
               if (selectedOwnerIds.isNotEmpty)
                SingleChildScrollView(
-  scrollDirection: Axis.horizontal,
-  child: DataTable(
-    columnSpacing: 16.0, // Adjust the spacing between columns as needed
+   scrollDirection: Axis.horizontal,
+    child: SingleChildScrollView(
+      scrollDirection: Axis.vertical,
+ child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.black), // Add black border around the table
+          ),
+          child: DataTable(
+            showCheckboxColumn: false,
+            columnSpacing: 16.0,
+            headingRowColor: MaterialStateColor.resolveWith((states) => Color(0xFFF9D8C5)), // Set header row color
+            dividerThickness: 1.0, // Add separator lines between columns
+          
     columns: [
       DataColumn(label: Text('Name')),
       DataColumn(label: Text('Phone')),
@@ -236,7 +283,7 @@ void dispose() {
       DataColumn(label: Text('Remaining Amount Share')),
     ],
     rows: _buildOwnersRows(),
-  ),
+  ),),)
 ),
               SizedBox(height: 20),
 
@@ -419,7 +466,61 @@ double _calculateTotalProfit() {
   }
   return totalProfit;
 }
-
+BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeScreen) {
+    return BottomNavigationBar(
+      currentIndex: 0,
+      fixedColor: Colors.grey, 
+      items: [
+        BottomNavigationBarItem(
+           icon: Icon(Icons.home, color: Colors.grey), 
+          label: "Home",
+           backgroundColor: Color(0xFFF9D8C5),
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.wrap_text),
+          label: "Statements",
+           backgroundColor: Color(0xFFF9D8C5),
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.exit_to_app),
+          label: "Logout",
+           backgroundColor: Color(0xFFF9D8C5),
+        ),
+      ],
+      onTap: (index) {
+        setState(() {
+          switch (index) {
+            case 0:
+              // Navigate to HomeScreen only if it's not the current screen
+              if (!isHomeScreen) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => HomeScreen(organizationId: organizationId)),
+                );
+              }
+              break;
+            case 1:
+              // Navigate to StatementScreen
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => StatementScreen()),
+              );
+              break;
+            case 2:
+              // Logout
+              FirebaseAuth.instance.signOut().then((value) {
+                print("Signed Out");
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+                );
+              });
+              break;
+          }
+        });
+      },
+    );
+  }
   Future<void> _selectSailingDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -940,6 +1041,7 @@ Future<void> _addSalaryToCrewMembersSubcollection(DocumentReference newEntryDocR
 
   // Get the current datetime
   DateTime currentDate = DateTime.now();
+DateTime currentDateWithoutTime = DateTime(currentDate.year, currentDate.month, currentDate.day);
 
   for (var crewMemberId in selectedCrewMemberIds) {
     var crewMember = crewMembers.firstWhere((element) => element.id == crewMemberId);
@@ -968,7 +1070,7 @@ Future<void> _addSalaryToCrewMembersSubcollection(DocumentReference newEntryDocR
       'paidamount':'0.0',
       'pendingamount':'0.0',
       'modeofpayment':'Cash',
-      'date': Timestamp.fromDate(currentDate),
+      'paymentdate': Timestamp.fromDate(currentDateWithoutTime),
       'inchargeid': crewMemberId, // Set inchargeId as crewMemberId
       'newentryid': newEntryDocId, // Set newentryid with the document ID of newEntryDocRef
     });
@@ -992,6 +1094,7 @@ Future<void> _addOwnerShareSubcollection(DocumentReference newEntryDocRef, Strin
 
   // Get the current datetime
   DateTime currentDate = DateTime.now();
+DateTime currentDateWithoutTime = DateTime(currentDate.year, currentDate.month, currentDate.day);
 
   for (var ownerId in selectedOwnerIds) {
     var owner = owners.firstWhere((element) => element.id == ownerId);
@@ -1030,7 +1133,7 @@ Future<void> _addOwnerShareSubcollection(DocumentReference newEntryDocRef, Strin
       'paidamount':'0.0',
       'pendingamount':'0.0',
       'modeofpayment':'Cash',
-      'date': Timestamp.fromDate(currentDate),
+      'paymentdate': Timestamp.fromDate(currentDateWithoutTime),
       'inchargeid': ownerId, // Set inchargeId as ownerId
       'newentryid': newEntryDocId,
     });

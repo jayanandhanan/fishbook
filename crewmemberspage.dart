@@ -1,3 +1,6 @@
+import 'package:fishbook/home_screen.dart';
+import 'package:fishbook/login_screen.dart';
+import 'package:fishbook/statementsscreen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -16,12 +19,25 @@ class CrewMembersPageState extends State<CrewMembersPage> {
   String? editingCrewMemberDetailId;
   List<String> selectedRows = [];
   String? userRole; 
+    String? organizationId;
+  String? currentUserId;
+  bool isHomeScreen = false;
 
 
   @override
   void initState() {
     super.initState();
     _fetchUserRole(); // Fetch user role when the widget initializes
+    getCurrentUser();
+  }
+
+  Future<void> getCurrentUser() async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      currentUserId = user.uid;
+      await fetchOrganizationId();
+      
+    }
   }
 
   Future<void> _fetchUserRole() async {
@@ -35,12 +51,24 @@ class CrewMembersPageState extends State<CrewMembersPage> {
     }
   }
 
+  Future<void> fetchOrganizationId() async {
+    DocumentSnapshot userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(currentUserId)
+        .get();
+    setState(() {
+      organizationId = userDoc['organizationId'];
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Crew Member Details'),
+        backgroundColor: Colors.blue,
       ),
+      bottomNavigationBar: buildBottomNavigationBar(context,isHomeScreen),
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -66,105 +94,166 @@ class CrewMembersPageState extends State<CrewMembersPage> {
     );
   }
 
-  Widget _buildCrewMemberTable() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _getCrewMemberDetailsStream(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Center(
-            child: Text('Error: ${snapshot.error}'),
-          );
+  BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeScreen) {
+    return BottomNavigationBar(
+      currentIndex: 0,
+      fixedColor: Colors.grey ,  // Set color based on the boolean variable
+      items: [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.home, color: Colors.grey), 
+          label: "Home",
+          backgroundColor: Color(0xFFF9D8C5),
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.wrap_text),
+          label: "Statements",
+          backgroundColor: Color(0xFFF9D8C5),
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.exit_to_app),
+          label: "Logout",
+          backgroundColor: Color(0xFFF9D8C5),
+        ),
+      ],
+      onTap: (index) {
+        switch (index) {
+          case 0:
+            // Navigate to HomeScreen only if it's not the current screen
+            if (!isHomeScreen) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => HomeScreen(organizationId: organizationId),
+                ),
+              );
+            }
+            break;
+          case 1:
+            // Navigate to StatementScreen
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => StatementScreen(),
+              ),
+            );
+            break;
+          case 2:
+            // Logout
+            FirebaseAuth.instance.signOut().then((value) {
+              print("Signed Out");
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+              );
+            });
+            break;
         }
-
-        if (snapshot.connectionState != ConnectionState.active) {
-          return Center(
-            child: CircularProgressIndicator(),
-          );
-        }
-
-        List<DocumentSnapshot> crewmemberDetails = snapshot.data?.docs ?? [];
-
-        return DataTable(
-          showCheckboxColumn: false,
-          columns: _buildTableColumns(),
-          columnSpacing: 16.0,
-          rows: _buildTableRows(crewmemberDetails),
-        );
       },
     );
   }
 
-  List<DataColumn> _buildTableColumns() {
-    return [
-      DataColumn(label: Text('Name')),
-      DataColumn(label: Text('Phone')),
-      DataColumn(label: Text('Email')),
-      DataColumn(label: Text('Type')),
-      if (userRole == 'Headowner')
-      DataColumn(label: Text('Actions')),
-    ];
-  }
+Widget _buildCrewMemberTable() {
+  return StreamBuilder<QuerySnapshot>(
+    stream: _getCrewMemberDetailsStream(),
+    builder: (context, snapshot) {
+      if (snapshot.hasError) {
+        return Center(
+          child: Text('Error: ${snapshot.error}'),
+        );
+      }
 
-  List<DataRow> _buildTableRows(List<DocumentSnapshot> crewmemberDetails) {
-    return crewmemberDetails.map((crewmemberDetail) {
-      return DataRow(
-        selected: selectedRows.contains(crewmemberDetail.id),
-        onSelectChanged: (selected) {
-          if (selected != null) {
-            setState(() {
-              if (selected) {
-                selectedRows.add(crewmemberDetail.id);
+      if (snapshot.connectionState != ConnectionState.active) {
+        return Center(
+          child: CircularProgressIndicator(),
+        );
+      }
+
+      List<DocumentSnapshot> crewmemberDetails = snapshot.data?.docs ?? [];
+
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.black), // Add black border around the table
+          ),
+          child: DataTable(
+            showCheckboxColumn: false,
+            columns: _buildTableColumns(),
+            columnSpacing: 16.0,
+            headingRowColor: MaterialStateColor.resolveWith((states) => Color(0xFFF9D8C5)), // Set header row color
+            dividerThickness: 1.0, // Add separator lines between columns
+            rows: _buildTableRows(crewmemberDetails),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+List<DataColumn> _buildTableColumns() {
+  return [
+    DataColumn(label: Text('Name')),
+    DataColumn(label: Text('Phone')),
+    DataColumn(label: Text('Email')),
+    DataColumn(label: Text('Type')),
+    if (userRole == 'Headowner') DataColumn(label: Text('Actions')),
+  ];
+}
+
+List<DataRow> _buildTableRows(List<DocumentSnapshot> crewmemberDetails) {
+  return crewmemberDetails.map((crewmemberDetail) {
+    return DataRow(
+      selected: selectedRows.contains(crewmemberDetail.id),
+      onSelectChanged: (selected) {
+        if (selected != null) {
+          setState(() {
+            if (selected) {
+              selectedRows.add(crewmemberDetail.id);
+            } else {
+              selectedRows.remove(crewmemberDetail.id);
+            }
+          });
+        }
+      },
+      cells: [
+        DataCell(Text(crewmemberDetail['name'].toString())),
+        DataCell(Text(crewmemberDetail['phone'].toString())),
+        DataCell(Text(crewmemberDetail['email'].toString())),
+        DataCell(
+          FutureBuilder<Widget>(
+            future: _buildAddedByColumn(crewmemberDetail),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return CircularProgressIndicator();
               } else {
-                selectedRows.remove(crewmemberDetail.id);
-              }
-            });
-          }
-        },
-        cells: [
-          DataCell(
-            Text(crewmemberDetail['name'].toString()),
-          ),
-          DataCell(
-            Text(crewmemberDetail['phone'].toString()),
-          ),
-          DataCell(
-            Text(crewmemberDetail['email'].toString()),
-          ),
-           DataCell(
-            FutureBuilder<Widget>(
-              future: _buildAddedByColumn(crewmemberDetail),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return CircularProgressIndicator(); // or any other loading indicator
+                if (snapshot.hasError) {
+                  return Text('Error: ${snapshot.error}');
                 } else {
-                  if (snapshot.hasError) {
-                    return Text('Error: ${snapshot.error}');
-                  } else {
-                    return snapshot.data!;
-                  }
+                  return snapshot.data!;
                 }
-              },
-            ),
+              }
+            },
           ),
-          if (userRole == 'Headowner')
+        ),
+        if (userRole == 'Headowner')
           DataCell(
             Row(
               children: [
                 if (userRole == 'Headowner')
-                IconButton(
-                  icon: Icon(Icons.edit),
-                  onPressed: () async {
-                    if (await _isEditingAllowed(crewmemberDetail.id)) {
-                      editCrewMemberDetail(crewmemberDetail);
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('You cannot edit this crewmember.'),
-                        ),
-                      );
-                    }
-                  },
-                ),
+                  IconButton(
+                    icon: Icon(Icons.edit),
+                    onPressed: () async {
+                      if (await _isEditingAllowed(crewmemberDetail.id)) {
+                        editCrewMemberDetail(crewmemberDetail);
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('You cannot edit this crewmember.'),
+                          ),
+                        );
+                      }
+                    },
+                  ),
                 if (userRole == 'Headowner')
                   IconButton(
                     icon: Icon(Icons.delete),
@@ -183,10 +272,13 @@ class CrewMembersPageState extends State<CrewMembersPage> {
               ],
             ),
           ),
-        ],
-      );
-    }).toList();
-  }
+      ],
+    );
+  }).toList();
+}
+
+
+
     Future<Widget> _buildAddedByColumn(DocumentSnapshot crewmemberDetail) async {
     if (await _isDocumentIdPresent(crewmemberDetail.id)) {
       return Text('Signed in user');

@@ -1,5 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:fishbook/home_screen.dart';
+import 'package:fishbook/login_screen.dart';
+import 'package:fishbook/statementsscreen.dart';
 import 'package:flutter/material.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -14,13 +17,15 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final _auth = FirebaseAuth.instance;
   final _firestore = FirebaseFirestore.instance;
-  
+  bool isHomeScreen = false;
+  String? organizationId;
   User? loggedInUser;
 
   @override
   void initState() {
     super.initState();
     getCurrentUser();
+    _fetchOrganizationId();
   }
 
   void getCurrentUser() {
@@ -34,6 +39,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (e) {
       print(e);
     }
+  }
+
+  Future<String?> _fetchOrganizationId() async {
+    String? userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId != null) {
+      DocumentSnapshot userSnapshot =
+          await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      return userSnapshot['organizationId'];
+    }
+    return null;
   }
 
   void _editProfile() {
@@ -80,202 +95,257 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
- void _updateProfile() async {
-  try {
-    final userDoc = _firestore.collection('users').doc(loggedInUser?.uid);
+  void _updateProfile() async {
+    try {
+      final userDoc = _firestore.collection('users').doc(loggedInUser?.uid);
 
-    // Retrieve updated values for all fields
-    final name = _nameController.text.isNotEmpty ? _nameController.text : _nameController.text;
-    final phone = _phoneController.text.isNotEmpty ? _phoneController.text : _phoneController.text;
-    final boatName = _boatNameController.text.isNotEmpty ? _boatNameController.text : _boatNameController.text;
+      // Retrieve updated values for all fields
+      final name = _nameController.text.isNotEmpty ? _nameController.text : _nameController.text;
+      final phone = _phoneController.text.isNotEmpty ? _phoneController.text : _phoneController.text;
+      final boatName = _boatNameController.text.isNotEmpty ? _boatNameController.text : _boatNameController.text;
 
-    final userData = await userDoc.get();
-    final existingData = userData.data() as Map<String, dynamic>?;
+      final userData = await userDoc.get();
+      final existingData = userData.data() as Map<String, dynamic>?;
 
-    // Preserve existing values if fields are empty
-    final updatedData = {
-      'name': name.isNotEmpty ? name : existingData?['name'],
-      'phone': phone.isNotEmpty ? phone : existingData?['phone'],
-      'boatname': boatName.isNotEmpty ? boatName : existingData?['boatname'],
-    };
+      // Preserve existing values if fields are empty
+      final updatedData = {
+        'name': name.isNotEmpty ? name : existingData?['name'],
+        'phone': phone.isNotEmpty ? phone : existingData?['phone'],
+        'boatname': boatName.isNotEmpty ? boatName : existingData?['boatname'],
+      };
 
-    // Update user profile
-    await userDoc.update(updatedData);
+      // Update user profile
+      await userDoc.update(updatedData);
 
-    // Update subcollection fields
-    await _updateSubcollectionFields(loggedInUser!.uid, updatedData);
+      // Update subcollection fields
+      await _updateSubcollectionFields(loggedInUser!.uid, updatedData);
+      await _updateWorkManagementSubcollectionFields(loggedInUser!.uid, updatedData);
+      await _updateSalaryToCrewMembersSubcollection(loggedInUser!.uid, updatedData);
+      await _updateOwnerShareSubcollection(loggedInUser!.uid, updatedData);
+      await _updatePaymentDetailsSubcollectionFields(loggedInUser!.uid, updatedData);
 
-    await _updateWorkManagementSubcollectionFields(loggedInUser!.uid, updatedData);
-    await _updateSalaryToCrewMembersSubcollection(loggedInUser!.uid,  updatedData);
-    await _updateOwnerShareSubcollection(loggedInUser!.uid, updatedData);
-    await _updatePaymentDetailsSubcollectionFields(loggedInUser!.uid, updatedData);
-
-    // Update the profile screen UI
-    if (mounted) { // Check if the widget is still mounted
+      // Update the profile screen UI
+      if (mounted) {
         setState(() {});
       }
-    // Close the dialog
-    Navigator.pop(context);
-  } catch (e) {
-    print('Error updating profile: $e');
-    // Handle error
+
+      // Close the dialog
+      Navigator.pop(context);
+    } catch (e) {
+      print('Error updating profile: $e');
+      // Handle error
+    }
   }
-}
 
-Future<void> _updateSubcollectionFields(String userId, Map<String, dynamic> updatedData) async {
-  try {
-    final userDoc = await _firestore.collection('users').doc(userId).get();
-    final organizationId = userDoc.data()?['organizationId'];
-   
+  BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeScreen) {
+    return BottomNavigationBar(
+      currentIndex: 0,
+      fixedColor: Colors.grey, // Set color based on the boolean variable
+      items: [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.home),
+          label: "Home",
+          backgroundColor: Color(0xFFF9D8C5),
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.wrap_text),
+          label: "Statements",
+          backgroundColor: Color(0xFFF9D8C5),
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.exit_to_app),
+          label: "Logout",
+          backgroundColor: Color(0xFFF9D8C5),
+        ),
+      ],
+      onTap: (index) {
+        switch (index) {
+          case 0:
+            // Navigate to HomeScreen only if it's not the current screen
+            if (!isHomeScreen) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => HomeScreen(organizationId: organizationId),
+                ),
+              );
+            }
+            break;
+          case 1:
+            // Navigate to StatementScreen
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => StatementScreen(),
+              ),
+            );
+            break;
+          case 2:
+            // Logout
+            FirebaseAuth.instance.signOut().then((value) {
+              print("Signed Out");
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+              );
+            });
+            break;
+        }
+      },
+    );
+  }
 
-    final subcollections = ['headowners', 'co-owners', 'crewmembers', 'ownerdetails', 'crewmemberdetails'];
+  Future<void> _updateSubcollectionFields(String userId, Map<String, dynamic> updatedData) async {
+    try {
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      final organizationId = userDoc.data()?['organizationId'];
 
-    for (String subcollection in subcollections) {
-      final querySnapshot = await _firestore.collection('organizations').doc(organizationId).collection(subcollection).get();
+      final subcollections = ['headowners', 'co-owners', 'crewmembers', 'ownerdetails', 'crewmemberdetails'];
 
+      for (String subcollection in subcollections) {
+        final querySnapshot = await _firestore.collection('organizations').doc(organizationId).collection(subcollection).get();
+
+        for (DocumentSnapshot doc in querySnapshot.docs) {
+          // Update only if the document belongs to the current user
+          if (doc.id == userId) {
+            await doc.reference.update({'name': updatedData['name'], 'phone': updatedData['phone']});
+          }
+        }
+      }
+    } catch (e) {
+      print('Error updating subcollection fields: $e');
+    }
+  }
+
+  Future<void> _updateWorkManagementSubcollectionFields(String userId, Map<String, dynamic> updatedData) async {
+    try {
+      // Fetch user document
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      final organizationId = userDoc.data()?['organizationId'];
+
+      // Query documents in the 'workmanagement' subcollection under the organizationId
+      final querySnapshot = await _firestore.collection('organizations').doc(organizationId).collection('workmanagement').get();
+
+      // Iterate over each document in the query result
       for (DocumentSnapshot doc in querySnapshot.docs) {
-        // Update only if the document belongs to the current user
-        if (doc.id == userId) {
-          await doc.reference.update({'name': updatedData['name'], 'phone': updatedData['phone']});
+        // Access 'inchargeid' using bracket notation
+        final inchargeId = doc['inchargeid'];
+        if (inchargeId == userId) {
+          // Update the 'incharge' field of the document with the value from the 'updatedData' map
+          await doc.reference.update({'incharge': updatedData['name']});
         }
       }
+    } catch (e) {
+      // Catch and handle errors
+      print('Error updating workmanagement subcollection: $e');
     }
-  
-  } catch (e) {
-    print('Error updating subcollection fields: $e');
   }
-}
 
-Future<void> _updateWorkManagementSubcollectionFields(String userId, Map<String, dynamic> updatedData) async {
-  try {
-    // Fetch user document
-    final userDoc = await _firestore.collection('users').doc(userId).get();
-    final organizationId = userDoc.data()?['organizationId'];
+  Future<void> _updatePaymentDetailsSubcollectionFields(String userId, Map<String, dynamic> updatedData) async {
+    try {
+      // Fetch user document
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      final organizationId = userDoc.data()?['organizationId'];
 
-    // Query documents in the 'workmanagement' subcollection under the organizationId
-    final querySnapshot = await _firestore.collection('organizations').doc(organizationId).collection('workmanagement').get();
+      // Query documents in the 'paymentdetails' subcollection under the organizationId
+      final querySnapshot = await _firestore.collection('organizations').doc(organizationId).collection('paymentdetails').get();
 
-    // Iterate over each document in the query result
-    for (DocumentSnapshot doc in querySnapshot.docs) {
-      // Access 'inchargeid' using bracket notation
-      final inchargeId = doc['inchargeid'];
-      if (inchargeId == userId) {
-        // Update the 'incharge' field of the document with the value from the 'updatedData' map
-        await doc.reference.update({'incharge': updatedData['name']});
+      // Iterate over each document in the query result
+      for (DocumentSnapshot doc in querySnapshot.docs) {
+        // Access 'inchargeid' using bracket notation
+        final inchargeId = doc['inchargeid'];
+        if (inchargeId == userId) {
+          // Update the 'name' and 'phone' fields of the document with the values from the 'updatedData' map
+          await doc.reference.update({
+            'name': updatedData['name'],
+            'phone': updatedData['phone']
+          });
+        }
       }
+    } catch (e) {
+      // Catch and handle errors
+      print('Error updating paymentdetails subcollection: $e');
     }
-  } catch (e) {
-    // Catch and handle errors
-    print('Error updating workmanagement subcollection: $e');
   }
-}
 
-Future<void> _updatePaymentDetailsSubcollectionFields(String userId, Map<String, dynamic> updatedData) async {
-  try {
-    // Fetch user document
-    final userDoc = await _firestore.collection('users').doc(userId).get();
-    final organizationId = userDoc.data()?['organizationId'];
+  Future<void> _updateSalaryToCrewMembersSubcollection(String userId, Map<String, dynamic> updatedData) async {
+    try {
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      final organizationId = userDoc.data()?['organizationId'];
+      final subcollections = ['salarytocrewmwmbers'];
 
-    // Query documents in the 'paymentdetails' subcollection under the organizationId
-    final querySnapshot = await _firestore.collection('organizations').doc(organizationId).collection('paymentdetails').get();
-
-    // Iterate over each document in the query result
-    for (DocumentSnapshot doc in querySnapshot.docs) {
-      // Access 'inchargeid' using bracket notation
-      final inchargeId = doc['inchargeid'];
-      if (inchargeId == userId) {
-        // Update the 'name' and 'phone' fields of the document with the values from the 'updatedData' map
-        await doc.reference.update({
-          'name': updatedData['name'],
-          'phone': updatedData['phone']
-        });
-      }
-    }
-  } catch (e) {
-    // Catch and handle errors
-    print('Error updating paymentdetails subcollection: $e');
-  }
-}
-
-
-Future<void> _updateSalaryToCrewMembersSubcollection(String userId, Map<String, dynamic> updatedData) async {
-  try {
-    final userDoc = await _firestore.collection('users').doc(userId).get();
-    final organizationId = userDoc.data()?['organizationId'];
-     final subcollections = ['salarytocrewmwmbers'];
-
-for (String subcollection in subcollections) {
-    final querySnapshot = await _firestore
-        .collection('organizations')
-        .doc(organizationId)
-        .collection('newentry') // Assuming 'newentry' is a collection under the organization document
-        .get();
-
-    for (DocumentSnapshot entryDoc in querySnapshot.docs) {
-        final entryDocId = entryDoc.id; // Get the ID of each document in the 'newentry' collection
-
-        final subcollectionQuery = await _firestore
+      for (String subcollection in subcollections) {
+        final querySnapshot = await _firestore
             .collection('organizations')
             .doc(organizationId)
-            .collection('newentry')
-            .doc(entryDocId)
-            .collection(subcollection)
+            .collection('newentry') // Assuming 'newentry' is a collection under the organization document
             .get();
-    
-for (DocumentSnapshot doc in subcollectionQuery.docs) {
-             // Update only if the document belongs to the current user
-        if (doc.id == userId) {
-          await doc.reference.update({'name': updatedData['name'], 'phone': updatedData['phone']});
+
+        for (DocumentSnapshot entryDoc in querySnapshot.docs) {
+          final entryDocId = entryDoc.id; // Get the ID of each document in the 'newentry' collection
+
+          final subcollectionQuery = await _firestore
+              .collection('organizations')
+              .doc(organizationId)
+              .collection('newentry')
+              .doc(entryDocId)
+              .collection(subcollection)
+              .get();
+
+          for (DocumentSnapshot doc in subcollectionQuery.docs) {
+            // Update only if the document belongs to the current user
+            if (doc.id == userId) {
+              await doc.reference.update({'name': updatedData['name'], 'phone': updatedData['phone']});
+            }
+          }
         }
       }
-    }}
-  } catch (e) {
-    print('Error updating salarytocrewmembers subcollection: $e');
+    } catch (e) {
+      print('Error updating salarytocrewmembers subcollection: $e');
+    }
   }
-}
 
+  Future<void> _updateOwnerShareSubcollection(String userId, Map<String, dynamic> updatedData) async {
+    try {
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      final organizationId = userDoc.data()?['organizationId'];
+      final subcollections = ['ownershare'];
 
-Future<void> _updateOwnerShareSubcollection(String userId,  Map<String, dynamic> updatedData) async {
- try {
-    final userDoc = await _firestore.collection('users').doc(userId).get();
-    final organizationId = userDoc.data()?['organizationId'];
-     final subcollections = ['ownershare'];
-
-for (String subcollection in subcollections) {
-    final querySnapshot = await _firestore
-        .collection('organizations')
-        .doc(organizationId)
-        .collection('newentry') // Assuming 'newentry' is a collection under the organization document
-        .get();
-
-    for (DocumentSnapshot entryDoc in querySnapshot.docs) {
-        final entryDocId = entryDoc.id; // Get the ID of each document in the 'newentry' collection
-
-        final subcollectionQuery = await _firestore
+      for (String subcollection in subcollections) {
+        final querySnapshot = await _firestore
             .collection('organizations')
             .doc(organizationId)
-            .collection('newentry')
-            .doc(entryDocId)
-            .collection(subcollection)
+            .collection('newentry') // Assuming 'newentry' is a collection under the organization document
             .get();
-    
-for (DocumentSnapshot doc in subcollectionQuery.docs) {
-             // Update only if the document belongs to the current user
-        if (doc.id == userId) {
-          await doc.reference.update({'name': updatedData['name'], 'phone': updatedData['phone']});
+
+        for (DocumentSnapshot entryDoc in querySnapshot.docs) {
+          final entryDocId = entryDoc.id; // Get the ID of each document in the 'newentry' collection
+
+          final subcollectionQuery = await _firestore
+              .collection('organizations')
+              .doc(organizationId)
+              .collection('newentry')
+              .doc(entryDocId)
+              .collection(subcollection)
+              .get();
+
+          for (DocumentSnapshot doc in subcollectionQuery.docs) {
+            // Update only if the document belongs to the current user
+            if (doc.id == userId) {
+              await doc.reference.update({'name': updatedData['name'], 'phone': updatedData['phone']});
+            }
+          }
         }
       }
-    }}
-  } catch (e) {
-    print('Error updating ownershare subcollection: $e');
+    } catch (e) {
+      print('Error updating ownershare subcollection: $e');
+    }
   }
-}
 
   TextEditingController _nameController = TextEditingController();
   TextEditingController _phoneController = TextEditingController();
   TextEditingController _boatNameController = TextEditingController();
 
- 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -289,7 +359,9 @@ for (DocumentSnapshot doc in subcollectionQuery.docs) {
             },
           ),
         ],
+        backgroundColor: Colors.blue,
       ),
+      bottomNavigationBar: buildBottomNavigationBar(context, false),
       body: FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
         future: _firestore.collection('users').doc(loggedInUser?.uid).get(),
         builder: (context, snapshot) {
@@ -309,39 +381,43 @@ for (DocumentSnapshot doc in subcollectionQuery.docs) {
           final boatName = userData['boatname'] ?? '';
           final phone = userData['phone'] ?? '';
           final name = userData['name'] ?? '';
+          
 
-          return Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                CircleAvatar(
-                  radius: 50,
-                  child: Icon(
-                    Icons.person,
-                    size: 60,
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  CircleAvatar(
+                    radius: 50,
+                    child: Icon(
+                      Icons.person,
+                      size: 60,
+                    ),
                   ),
-                ),  SizedBox(height: 8),
-                Text(
-                  'Name: $name',
-                  style: TextStyle(fontSize: 18),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Phone Number: $phone',
-                  style: TextStyle(fontSize: 18),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Email: ${loggedInUser?.email ?? 'N/A'}',
-                  style: TextStyle(fontSize: 18),
-                ),
-               SizedBox(height: 16),
-                Text(
-                  'Boat Name: $boatName',
-                  style: TextStyle(fontSize: 18),
-                ),
-              ],
+                  SizedBox(height: 8),
+                  Text(
+                    'Name: $name',
+                    style: TextStyle(fontSize: 18),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Phone Number: $phone',
+                    style: TextStyle(fontSize: 18),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Email: ${loggedInUser?.email ?? 'N/A'}',
+                    style: TextStyle(fontSize: 18),
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'Boat Name: $boatName',
+                    style: TextStyle(fontSize: 18),
+                  ),
+                ],
+              ),
             ),
           );
         },
