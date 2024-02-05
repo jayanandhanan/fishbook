@@ -72,7 +72,9 @@ class CrewMembersPageState extends State<CrewMembersPage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            if (userRole == 'Headowner')
+            
+            SizedBox(height: 5),
+             if (userRole == 'Headowner')
             ElevatedButton(
               onPressed: () {
                 showDialog(
@@ -84,6 +86,7 @@ class CrewMembersPageState extends State<CrewMembersPage> {
               },
               child: Text('Add Crew Member'),
             ),
+            SizedBox(height: 10),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: _buildCrewMemberTable(),
@@ -143,7 +146,7 @@ class CrewMembersPageState extends State<CrewMembersPage> {
               print("Signed Out");
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+                MaterialPageRoute(builder: (context) => LoginScreen()),
               );
             });
             break;

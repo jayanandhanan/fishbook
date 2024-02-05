@@ -153,7 +153,7 @@ BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeSc
                 print("Signed Out");
                 Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+                  MaterialPageRoute(builder: (context) => LoginScreen()),
                 );
               });
               break;

@@ -52,70 +52,74 @@ class _MyWorkScreenState extends State<MyWorkScreen> {
       workDocuments = workSnapshot.docs;
     });
   }
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(
+      title: Text('My Work'),
+      backgroundColor: Colors.blue,
+    ),
+    bottomNavigationBar: buildBottomNavigationBar(context, false),
+    body: Padding(
+      padding: EdgeInsets.only(top: 16.0), // Add padding to the top
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.vertical,
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.black),
+            ),
+            child: DataTable(
+              showCheckboxColumn: false,
+              columnSpacing: 16.0,
+              headingRowColor: MaterialStateColor.resolveWith(
+                  (states) => Color(0xFFF9D8C5)),
+              dividerThickness: 1.0,
+              columns: [
+                DataColumn(label: Text('Date')),
+                DataColumn(label: Text('Work')), 
+                DataColumn(label: Text('Name')),
+                DataColumn(label: Text('Amount')),
+                DataColumn(label: Text('Pending Amount')),
+                DataColumn(label: Text('Paid Amount')),
+                DataColumn(label: Text('Payment')),
+                DataColumn(label: Text('Payment Date')),
+                DataColumn(label: Text('Mode Of Payment')),
+              ],
+              rows: workDocuments.map((doc) {
+                // Convert date timestamp to DateTime
+                DateTime? date = (doc['date'] as Timestamp?)?.toDate();
+                // Convert date DateTime to formatted string
+                String formattedDate = date != null
+                    ? '${date.day.toString().padLeft(2, '0')}-${date.month.toString().padLeft(2, '0')}-${date.year}'
+                    : '';
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('My Work'),
-         backgroundColor: Colors.blue,
-      ),
-      bottomNavigationBar: buildBottomNavigationBar(context,false),
-      body: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-    child: SingleChildScrollView(
-      scrollDirection: Axis.vertical,
- child: Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.black), // Add black border around the table
+                // Convert payment date timestamp to DateTime
+                DateTime? paymentDate = (doc['paymentdate'] as Timestamp?)?.toDate();
+                // Convert payment date DateTime to formatted string
+                String formattedPaymentDate = paymentDate != null
+                    ? '${paymentDate.day.toString().padLeft(2, '0')}-${paymentDate.month.toString().padLeft(2, '0')}-${paymentDate.year}'
+                    : '';
+
+                return DataRow(cells: [
+                  DataCell(Text(formattedDate)), // Display formatted date
+                  DataCell(Text(doc['work'] ?? '')),
+                  DataCell(Text(doc['incharge'] ?? '')),
+                  DataCell(Text(doc['amount'] ?? '')),
+                  DataCell(Text(doc['pendingamount'] ?? '')),
+                  DataCell(Text(doc['paidamount'] ?? '')),
+                  DataCell(Text(doc['payment'] ?? '')),
+                  DataCell(Text(formattedPaymentDate)), // Display formatted payment date
+                  DataCell(Text(doc['modeofpayment'] ?? '')),
+                ]);
+              }).toList(),
+            ),
           ),
-          child: DataTable(
-            showCheckboxColumn: false,
-            columnSpacing: 16.0,
-            headingRowColor: MaterialStateColor.resolveWith((states) => Color(0xFFF9D8C5)), // Set header row color
-            dividerThickness: 1.0, // Add separator lines between columns
-          columns: [
-            DataColumn(label: Text('Date')),
-            DataColumn(label: Text('Work')), 
-            DataColumn(label: Text('Name')),
-            DataColumn(label: Text('Amount')),
-            DataColumn(label: Text('Pending Amount')),
-            DataColumn(label: Text('Paid Amount')),
-            DataColumn(label: Text('Payment')),
-            DataColumn(label: Text('Payment Date')),
-             DataColumn(label: Text('Mode Of Payment')),
-            
-          ],
-           rows: workDocuments.map((doc) {
-          // Convert date timestamp to DateTime
-          DateTime? date = (doc['date'] as Timestamp?)?.toDate();
-          // Convert date DateTime to formatted string
-          String formattedDate = date != null
-              ? '${date.day.toString().padLeft(2, '0')}-${date.month.toString().padLeft(2, '0')}-${date.year}'
-              : '';
-
-          // Convert payment date timestamp to DateTime
-          DateTime? paymentDate = (doc['paymentdate'] as Timestamp?)?.toDate();
-          // Convert payment date DateTime to formatted string
-          String formattedPaymentDate = paymentDate != null
-              ? '${paymentDate.day.toString().padLeft(2, '0')}-${paymentDate.month.toString().padLeft(2, '0')}-${paymentDate.year}'
-              : '';
-
-          return DataRow(cells: [
-            DataCell(Text(formattedDate)), // Display formatted date
-            DataCell(Text(doc['work'] ?? '')),
-            DataCell(Text(doc['incharge'] ?? '')),
-            DataCell(Text(doc['amount'] ?? '')),
-            DataCell(Text(doc['pendingamount'] ?? '')),
-            DataCell(Text(doc['paidamount'] ?? '')),
-            DataCell(Text(doc['payment'] ?? '')),
-            DataCell(Text(formattedPaymentDate)), // Display formatted payment date
-            DataCell(Text(doc['modeofpayment'] ?? '')),
-          ]);
-        }).toList(),
+        ),
       ),
     ),
-  ),),);
+  );
 }
 
 BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeScreen) {
@@ -164,7 +168,7 @@ BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeSc
                 print("Signed Out");
                 Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+                  MaterialPageRoute(builder: (context) => LoginScreen()),
                 );
               });
               break;

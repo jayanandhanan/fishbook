@@ -133,6 +133,18 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+               SizedBox(height: 10),
+              ElevatedButton(
+                onPressed: _addToDatabase,
+                child: Text('Chart'),
+              ),
+              SizedBox(height: 10),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/filter');
+                },
+                child: Text('Filter and Create Chart'),
+              ),
               SizedBox(height: 20),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -143,18 +155,6 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                     child: _buildAnalyticsTable(),
                   ),
                 ),
-              ),
-              SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _addToDatabase,
-                child: Text('Chart'),
-              ),
-              SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/filter');
-                },
-                child: Text('Filter and Create Chart'),
               ),
             ],
           ),
@@ -209,7 +209,7 @@ BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeSc
                 print("Signed Out");
                 Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+                  MaterialPageRoute(builder: (context) => LoginScreen()),
                 );
               });
               break;

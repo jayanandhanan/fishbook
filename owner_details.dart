@@ -72,7 +72,9 @@ class _OwnerDetailsPageState extends State<OwnerDetailsPage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            if (userRole == 'Headowner')
+            
+            SizedBox(height: 5),
+             if (userRole == 'Headowner')
             ElevatedButton(
               onPressed: () {
                 showDialog(
@@ -84,6 +86,7 @@ class _OwnerDetailsPageState extends State<OwnerDetailsPage> {
               },
               child: Text('Add Owner'),
             ),
+            SizedBox(height: 10),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: _buildOwnerTable(),
@@ -141,7 +144,7 @@ BottomNavigationBar buildBottomNavigationBar(BuildContext context) {
               print("Signed Out");
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+                MaterialPageRoute(builder: (context) => LoginScreen()),
               );
             });
             break;

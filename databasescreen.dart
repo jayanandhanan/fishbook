@@ -1,6 +1,7 @@
 // ignore_for_file: unused_local_variable
 import 'package:fishbook/home_screen.dart';
 import 'package:fishbook/login_screen.dart';
+import 'package:fishbook/newentryscreen.dart';
 import 'package:fishbook/statementsscreen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -126,8 +127,23 @@ class _DatabaseScreenState extends State<DatabaseScreen> {
                 ),
               ],
             ),
-    );
-  }
+              floatingActionButton: Visibility(
+      visible: role == 'Headowner', // Show the FAB only if the role is Headowner
+      child: FloatingActionButton(
+        onPressed: () {
+          // Navigate to the new entry screen
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => NewEntryScreen()),
+          );
+        },
+        child: Icon(Icons.add),
+        backgroundColor: Color.fromARGB(255, 235, 235, 235),
+      ),
+    ),
+  );
+}
+
 
 BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeScreen) {
     return BottomNavigationBar(
@@ -175,7 +191,7 @@ BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeSc
                 print("Signed Out");
                 Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+                  MaterialPageRoute(builder: (context) => LoginScreen()),
                 );
               });
               break;
@@ -1503,40 +1519,35 @@ Future<void> _addCrewMemberToSalary(String documentId) async {
 }
 
 Widget _buildOwnersShareTable(String documentId) {
-  return SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            FutureBuilder(
-              future: _fetchOwnerShareSubcollection(documentId),
-              builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return CircularProgressIndicator();
-                }
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: FutureBuilder(
+          future: _fetchOwnerShareSubcollection(documentId),
+          builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return CircularProgressIndicator();
+            }
 
-                if (snapshot.hasError) {
-                  return Text('Error: ${snapshot.error}');
-                }
+            if (snapshot.hasError) {
+              return Text('Error: ${snapshot.error}');
+            }
 
-                var documents = snapshot.data!.docs;
+            var documents = snapshot.data!.docs;
 
-               return SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: SingleChildScrollView(
-      scrollDirection: Axis.vertical,
- child: Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.black), // Add black border around the table
-          ),
-          child: DataTable(
-            showCheckboxColumn: false,
-            columnSpacing: 16.0,
-            headingRowColor: MaterialStateColor.resolveWith((states) => Color(0xFFF9D8C5)), // Set header row color
-            dividerThickness: 1.0, // Add separator lines between columns
+            return SingleChildScrollView(
+              scrollDirection: Axis.vertical,
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.black),
+                ),
+                child: DataTable(
+                  showCheckboxColumn: false,
+                  columnSpacing: 16.0,
+                  headingRowColor: MaterialStateColor.resolveWith((states) => Color(0xFFF9D8C5)),
+                  dividerThickness: 1.0,
                   columns: [
                     DataColumn(label: Text('Name')),
                     DataColumn(label: Text('Email')),
@@ -1545,30 +1556,30 @@ Widget _buildOwnersShareTable(String documentId) {
                     DataColumn(label: Text('Share')),
                     DataColumn(label: Text('Profit Amount Share')),
                     DataColumn(label: Text('Remaining Amount Share')),
-                    if (role == 'Headowner')
-                    DataColumn(label: Text('Actions')), // New column for actions
+                    if (role == 'Headowner') DataColumn(label: Text('Actions')),
                   ],
                   rows: _buildOwnersShareRows(documents, documentId),
-                ),),),);
-              },
-            ),
-            SizedBox(height: 20), // Add spacing between DataTable and button
-          ],
+                ),
+              ),
+            );
+          },
         ),
-        Padding(
-          padding: const EdgeInsets.only(right: 16.0), // Adjust the left padding as needed
-           child: Visibility(
-          visible: role == 'Headowner',
+      ),
+      SizedBox(height: 20), // Adjust the spacing between the table and the button
+      Visibility(
+        visible: role == 'Headowner',
+        child: Padding(
+          padding: const EdgeInsets.only(left: 16.0),
           child: ElevatedButton(
             onPressed: () => _addOwnerToShare(documentId),
             child: Text('Add Owner'),
           ),
-           ),
         ),
-      ],
-    ),
+      ),
+    ],
   );
 }
+
 
 List<DataRow> _buildOwnersShareRows(List<QueryDocumentSnapshot> documents, String documentId) {
   List<DataRow> rows = [];

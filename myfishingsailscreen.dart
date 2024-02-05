@@ -68,63 +68,68 @@ class _MyFishingSailScreenState extends State<MyFishingSailScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('My Fishing Payment'),
- backgroundColor: Colors.blue,
-      ),
-      bottomNavigationBar: buildBottomNavigationBar(context,false),
-      body: SingleChildScrollView(
+ @override
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(
+      title: Text('My Fishing Payment'),
+      backgroundColor: Colors.blue,
+    ),
+    bottomNavigationBar: buildBottomNavigationBar(context,false),
+    body: Padding(
+      padding: EdgeInsets.only(top: 16.0), // Add padding to the top
+      child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-    child: SingleChildScrollView(
-      scrollDirection: Axis.vertical,
- child: Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.black), // Add black border around the table
+        child: SingleChildScrollView(
+          scrollDirection: Axis.vertical,
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.black), // Add black border around the table
+            ),
+            child: DataTable(
+              showCheckboxColumn: false,
+              columnSpacing: 16.0,
+              headingRowColor: MaterialStateColor.resolveWith((states) => Color(0xFFF9D8C5)), // Set header row color
+              dividerThickness: 1.0, // Add separator lines between columns
+              columns: [
+                DataColumn(label: Text('Payment Date')),
+                DataColumn(label: Text('Name')),
+                DataColumn(label: Text('Amount')),
+                DataColumn(label: Text('Paid Amount')),
+                DataColumn(label: Text('Pending Amount')),
+                DataColumn(label: Text('Payment')),
+                DataColumn(label: Text('Mode Of Payment')), 
+              ],
+              rows: paymentDocuments.map((doc) {
+
+                // Convert date timestamp to DateTime
+                DateTime? date = (doc['paymentdate'] as Timestamp?)?.toDate();
+                // Convert date DateTime to formatted string
+                String formattedDate = date != null
+                    ? '${date.day.toString().padLeft(2, '0')}-${date.month.toString().padLeft(2, '0')}-${date.year}'
+                    : '';
+
+                String amountValue = userRole == 'Crewmember'
+                    ? (doc['amount'] ?? 0.0).toStringAsFixed(2)
+                    : (doc['remainingamountshare'] ?? 0.0).toStringAsFixed(2);
+
+                return DataRow(cells: [
+                  DataCell(Text(formattedDate)), 
+                  DataCell(Text(doc['name'] ?? '')),
+                  DataCell(Text(amountValue)),
+                  DataCell(Text(doc['paidamount'] ?? '')),
+                  DataCell(Text(doc['pendingamount'] ?? '')),
+                  DataCell(Text(doc['payment'] ?? '')),
+                  DataCell(Text(doc['modeofpayment'] ?? '')),
+                ]);
+              }).toList(),
+            ),
           ),
-          child: DataTable(
-            showCheckboxColumn: false,
-            columnSpacing: 16.0,
-            headingRowColor: MaterialStateColor.resolveWith((states) => Color(0xFFF9D8C5)), // Set header row color
-            dividerThickness: 1.0, // Add separator lines between columns
-          columns: [
-            DataColumn(label: Text('Payment Date')),
-            DataColumn(label: Text('Name')),
-            DataColumn(label: Text('Amount')),
-            DataColumn(label: Text('Paid Amount')),
-            DataColumn(label: Text('Pending Amount')),
-            DataColumn(label: Text('Payment')),
-            DataColumn(label: Text('Mode Of Payment')), 
-          ],
-          rows: paymentDocuments.map((doc) {
-
-            // Convert date timestamp to DateTime
-            DateTime? date = (doc['paymentdate'] as Timestamp?)?.toDate();
-            // Convert date DateTime to formatted string
-            String formattedDate = date != null
-                ? '${date.day.toString().padLeft(2, '0')}-${date.month.toString().padLeft(2, '0')}-${date.year}'
-                : '';
-
-String amountValue = userRole == 'Crewmember'
-    ? (doc['amount'] ?? 0.0).toStringAsFixed(2)
-    : (doc['remainingamountshare'] ?? 0.0).toStringAsFixed(2);
-
-            return DataRow(cells: [
-              DataCell(Text(formattedDate)), 
-              DataCell(Text(doc['name'] ?? '')),
-              DataCell(Text(amountValue)),
-              DataCell(Text(doc['paidamount'] ?? '')),
-              DataCell(Text(doc['pendingamount'] ?? '')),
-              DataCell(Text(doc['payment'] ?? '')),
-              DataCell(Text(doc['modeofpayment'] ?? '')),
-            ]);
-          }).toList(),
         ),
       ),
-    ),),);
-  }
+    ),
+  );
+}
 
 BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeScreen) {
     return BottomNavigationBar(
@@ -172,7 +177,7 @@ BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeSc
                 print("Signed Out");
                 Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+                  MaterialPageRoute(builder: (context) => LoginScreen()),
                 );
               });
               break;

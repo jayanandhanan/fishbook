@@ -65,14 +65,14 @@ class _FishingSailPaymentState extends State<FishingSailPayment> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
+@override
+Widget build(BuildContext context) {
   return Scaffold(
     appBar: AppBar(
       title: Text('Fishing Payment'),
-     backgroundColor: Colors.blue,
-      ),
-      bottomNavigationBar: buildBottomNavigationBar(context,false),
+      backgroundColor: Colors.blue,
+    ),
+    bottomNavigationBar: buildBottomNavigationBar(context,false),
     body: SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -83,7 +83,7 @@ class _FishingSailPaymentState extends State<FishingSailPayment> {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 SizedBox(
-                  width: MediaQuery.of(context).size.width / 2,
+                  width: MediaQuery.of(context).size.width / 3,
                   child: ElevatedButton(
                     onPressed: () {
                       setState(() {
@@ -93,9 +93,9 @@ class _FishingSailPaymentState extends State<FishingSailPayment> {
                     },
                     child: Text('Crew Member Payment'),
                   ),
-                ),
+                ), if (userRole == 'Headowner')
                 SizedBox(
-                  width: MediaQuery.of(context).size.width / 2,
+                  width: MediaQuery.of(context).size.width / 3,
                   child: ElevatedButton(
                     onPressed: () {
                       setState(() {
@@ -116,6 +116,7 @@ class _FishingSailPaymentState extends State<FishingSailPayment> {
               ],
             ),
           ),
+          SizedBox(height: 16), // Add space between buttons and table
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -128,6 +129,7 @@ class _FishingSailPaymentState extends State<FishingSailPayment> {
               ],
             ),
           ),
+          SizedBox(height: 16), // Add space between buttons and table
           if (_organizationId != null )
             _showOwnerPayments
                 ? _buildPaymentTable(
@@ -149,6 +151,8 @@ class _FishingSailPaymentState extends State<FishingSailPayment> {
     ),
   );
 }
+
+
 BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeScreen) {
     return BottomNavigationBar(
       currentIndex: 0,
@@ -195,7 +199,7 @@ BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeSc
                 print("Signed Out");
                 Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+                  MaterialPageRoute(builder: (context) => LoginScreen()),
                 );
               });
               break;
@@ -299,13 +303,14 @@ payments.sort((a, b) {
                 Row(
                   children: [
                     Text(formattedDate),
-                    if (userRole == 'Headowner')
-                      ElevatedButton(
-                        onPressed: () {
-                          _showDatePickerDialog(paymentDoc, dateTime, userRole!);
-                        },
-                        child: Text('Change'),
-                      ),
+                    // Updated code with IconButton
+                        if (userRole == 'Headowner')
+                               IconButton(
+                          onPressed: () {
+                         _showDatePickerDialog(paymentDoc, dateTime, userRole!);
+                                },
+                         icon: Icon(Icons.edit), // You can replace this with any icon you prefer
+                    ),
                   ],
                 ),
               ),
@@ -317,11 +322,11 @@ payments.sort((a, b) {
                   children: [
                     Text(paidAmountString),
                     if (userRole == 'Headowner')
-                      ElevatedButton(
+                      IconButton(
                         onPressed: () {
                           _showPaidAmountDialog(paymentDoc, paidAmount, userType, userRole!);
                         },
-                        child: Text('Change'),
+                         icon: Icon(Icons.edit),
                       ),
                   ],
                 ),

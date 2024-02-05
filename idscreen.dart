@@ -17,10 +17,12 @@ class _IDScreenState extends State<IDScreen> {
   bool isHomeScreen=false;
   String? role ;
 
+
   @override
   void initState() {
     super.initState();
     _fetchOrganizationId();
+    _fetchUserRole();
     userId = FirebaseAuth.instance.currentUser!.uid;
     isHomeScreen = false;
   }
@@ -33,6 +35,17 @@ Future<String?> _fetchOrganizationId() async {
       return userSnapshot['organizationId'];
     }
     return null;
+  }
+
+  Future<void> _fetchUserRole() async {
+    String? userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId != null) {
+      DocumentSnapshot userSnapshot =
+          await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      setState(() {
+        role = userSnapshot['role'];
+      });
+    }
   }
 
   @override
@@ -57,7 +70,7 @@ Future<String?> _fetchOrganizationId() async {
           var userData = snapshot.data!.data() as Map<String, dynamic>;
           String organizationId = userData['organizationId'];
           // Fetch user's role
-        String? role = userData['role'];
+       
 
           if (organizationId == null) {
             return Center(child: Text('Organization ID not found for the user'));
@@ -130,7 +143,7 @@ BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeSc
                 print("Signed Out");
                 Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+                  MaterialPageRoute(builder: (context) => LoginScreen()),
                 );
               });
               break;
@@ -150,11 +163,11 @@ BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeSc
           children: [
             SizedBox(height: 20),
             _buildTextField(context, 'Organization ID', orgData['organizationId']),
+            SizedBox(height: 10),
             if(role != 'Crewmember' )
-            SizedBox(height: 10),
             _buildTextField(context, 'Co-Owner ID', orgData['coownerId']),
-            if(role != 'Co-owner' )
             SizedBox(height: 10),
+            if(role != 'Co-owner' )
             _buildTextField(context, 'Crew Member ID', orgData['crewmemberId']),
           ],
         ),

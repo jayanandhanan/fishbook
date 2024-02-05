@@ -71,6 +71,11 @@ bool isHomeScreen = false;
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+             SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: () => _addToDatabase(context, organizationId, userRole),
+              child: Text('Monthly Analytics and Chart'),
+            ),
             SizedBox(height: 20),
             Container(
               padding: EdgeInsets.all(8.0),
@@ -78,10 +83,6 @@ bool isHomeScreen = false;
                 border: Border.all(color: Colors.black),
               ),
               child: _buildFinanceTable(organizationId, userRole),
-            ),
-            ElevatedButton(
-              onPressed: () => _addToDatabase(context, organizationId, userRole),
-              child: Text('Monthly Analytics and Chart'),
             ),
           ],
         ),
@@ -138,7 +139,7 @@ bool isHomeScreen = false;
               print("Signed Out");
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+                MaterialPageRoute(builder: (context) => LoginScreen()),
               );
             });
             break;

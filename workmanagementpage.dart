@@ -89,11 +89,12 @@ class _WorkManagementPageState extends State<WorkManagementPage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
+            
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  ElevatedButton(
+                  ElevatedButton( 
                     onPressed: () {
                       setState(() {
                         isWorkFilterActive = true;
@@ -283,7 +284,7 @@ BottomNavigationBar buildBottomNavigationBar(BuildContext context) {
               print("Signed Out");
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+                MaterialPageRoute(builder: (context) => LoginScreen()),
               );
             });
             break;

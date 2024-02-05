@@ -186,7 +186,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               print("Signed Out");
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+                MaterialPageRoute(builder: (context) => LoginScreen()),
               );
             });
             break;

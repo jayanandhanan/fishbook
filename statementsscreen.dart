@@ -17,13 +17,55 @@ class _StatementScreenState extends State<StatementScreen> {
   bool isStatementsScreen = true;
   int? selectedYear;
   int? selectedMonth;
-
+  // Define _totalAmount as a class variable
+double _totalAmount = 0.0;
+  
   @override
   void initState() {
     super.initState();
     _fetchOrganizationIdAndUserRole();
   }
 
+
+void _calculateTotalAmount(List<QueryDocumentSnapshot> combinedData) {
+  double totalAmount = 0.0;
+
+  combinedData.forEach((doc) {
+    if (doc.exists) {
+      var data = doc.data() as Map<String, dynamic>;
+      String? amountString;
+
+      // Extract the amount from the document
+      if (data.containsKey('amount')) {
+        amountString = data['amount'].toString();
+      } else if (data.containsKey('remainingamountshare')) {
+        amountString = data['remainingamountshare'].toString();
+      } else if (data.containsKey('paidamount')) {
+        amountString = data['paidamount'].toString();
+      }
+
+      // Check if the amount string is not null or empty
+      if (amountString != null && amountString.isNotEmpty) {
+        // Try parsing the amount as a double
+        try {
+          double amount = double.parse(amountString);
+          totalAmount += amount;
+        } catch (e) {
+          // Handle parsing errors by logging them
+          print('Error parsing amount: $e');
+          print(amountString); // Print the problematic amount string
+        }
+      }
+    }
+  });
+
+  // Update the total amount only if it has changed
+  if (_totalAmount != totalAmount) {
+    setState(() {
+      _totalAmount = totalAmount;
+    });
+  }
+}
 
   Future<void> _fetchOrganizationIdAndUserRole() async {
     User? user = FirebaseAuth.instance.currentUser;
@@ -51,7 +93,7 @@ class _StatementScreenState extends State<StatementScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Statements'),
+        title: Text('Overall Statements'),
        backgroundColor: Colors.blue,
       ),
       bottomNavigationBar: buildBottomNavigationBar(context,false,true),
@@ -60,6 +102,7 @@ class _StatementScreenState extends State<StatementScreen> {
         scrollDirection: Axis.vertical,
         child: Column(
           children: [
+            SizedBox(height: 20), 
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -72,10 +115,10 @@ class _StatementScreenState extends State<StatementScreen> {
                     });
                   },
                   items: List.generate(
-                    DateTime.now().year - 1999 + 20,
+                    DateTime.now().year - 2020 + 21,
                     (index) => DropdownMenuItem<int>(
-                      value: 2000 + index,
-                      child: Text('${2000 + index}'),
+                      value: 2020 + index,
+                      child: Text('${2020 + index}'),
                     ),
                   ),
                 ),
@@ -108,6 +151,8 @@ class _StatementScreenState extends State<StatementScreen> {
                 ),
               ],
             ),
+            SizedBox(height: 20), 
+
             FutureBuilder<List<QueryDocumentSnapshot>>(
               future: _fetchStatements(role),
               builder: (context,
@@ -149,7 +194,10 @@ List<QueryDocumentSnapshot> filteredCombinedData = [];
         }).toList();
       } else {
         filteredCombinedData = combinedData;
-      }
+      }  // Call _calculateTotalAmount after building the table
+      WidgetsBinding.instance!.addPostFrameCallback((_) {
+        _calculateTotalAmount(filteredCombinedData);
+      });
                   return SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: SingleChildScrollView(
@@ -158,7 +206,8 @@ List<QueryDocumentSnapshot> filteredCombinedData = [];
                         decoration: BoxDecoration(
                           border: Border.all(color: Colors.black),
                         ),
-                        child: DataTable(
+                        child:
+                         DataTable(
                           showCheckboxColumn: false,
                           columnSpacing: 16.0,
                           headingRowColor:
@@ -174,15 +223,21 @@ List<QueryDocumentSnapshot> filteredCombinedData = [];
                           ],
                            rows: _buildDataRows(filteredCombinedData),
                     ),
+                    
                   ),),);
                 }
               },
+            ),
+             Text(
+              'Total Amount: $_totalAmount',
+              style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ],
         ),
       ),
     );
   }
+
 
 BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeScreen,bool isStatementsScreen) {
     return BottomNavigationBar(
@@ -232,7 +287,7 @@ BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeSc
               print("Signed Out");
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+                MaterialPageRoute(builder: (context) => LoginScreen()),
               );
             });
             break;

@@ -209,6 +209,7 @@ Widget build(BuildContext context) {
               );
             },
           ),
+          
         ],
       ),
     );
@@ -263,7 +264,7 @@ Widget build(BuildContext context) {
               print("Signed Out");
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+                MaterialPageRoute(builder: (context) => LoginScreen()),
               );
             });
             break;

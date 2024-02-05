@@ -37,7 +37,7 @@ class _FilterAnalyticsPageState extends State<FilterAnalyticsPage> {
   List<int> _generateYears() {
     int currentYear = DateTime.now().year;
     List<int> yearList = [];
-    for (int i = 1990; i <= currentYear + 20; i++) {
+    for (int i = 2020; i <= currentYear + 20; i++) {
       yearList.add(i);
     }
     return yearList;
@@ -160,6 +160,13 @@ class _FilterAnalyticsPageState extends State<FilterAnalyticsPage> {
                 );
               }).toList(),
             ),
+            SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: () {
+                _addToDatabase();
+              },
+              child: Text('Chart'),
+            ),
             SizedBox(height: 20),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -170,14 +177,7 @@ class _FilterAnalyticsPageState extends State<FilterAnalyticsPage> {
                   child: _buildFilteredAnalyticsTable(),
                 ),
               ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                _addToDatabase();
-              },
-              child: Text('Chart'),
-            ),
-            
+            ),  
           ],
         ),
       ),
@@ -230,7 +230,7 @@ BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeSc
                 print("Signed Out");
                 Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (context) => LoginScreen(userType: '')),
+                  MaterialPageRoute(builder: (context) => LoginScreen()),
                 );
               });
               break;
