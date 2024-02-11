@@ -230,6 +230,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
               Center(
                 child: ElevatedButton(
                   onPressed: () async {
+                     // Check if all required fields are filled
+                    if (name.isNotEmpty &&
+                        email.isNotEmpty &&
+                        phone.isNotEmpty &&
+                        password.isNotEmpty &&
+                        confirmPassword.isNotEmpty &&
+                       ((selectedRole == 'Headowner' && boatName.isNotEmpty) ||
+                            (selectedRole != 'Headowner' &&
+                                organizationId.isNotEmpty &&
+                                ((selectedRole == 'Co-owner' && coownerId.isNotEmpty) ||
+                                    (selectedRole == 'Crewmember' && crewmemberId.isNotEmpty))))) {
                     setState(() {
                       showSpinner = true;
                     });
@@ -258,12 +269,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           'name': name,
                           'email': email,
                           'phone': phone,
+                          'invest':0,
+                          'share':0,
                         });
 
                         await _firestore.collection('organizations').doc(organizationId).collection('ownerdetails').doc(userCredential!.user!.uid).set({
                           'name': name,
                           'email': email,
                           'phone': phone,
+                          'invest':0,
+                          'share':0,
                         });
 
                         await _firestore.collection('users').doc(userCredential.user!.uid).set({
@@ -275,51 +290,84 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           'role': selectedRole,
                         });
 
-                      } else if (selectedRole == 'Co-owner' || selectedRole == 'Crewmember') {
-                        userCredential = await _auth.createUserWithEmailAndPassword(
-                          email: email,
-                          password: password,
-                        );
+                      }  else {
+        // Check if the organization ID exists
+        DocumentSnapshot orgSnapshot = await _firestore
+            .collection('organizations')
+            .doc(organizationId)
+            .get();
 
-                        // Fetch boat name from Headowner's organization
-                        DocumentSnapshot orgSnapshot = await _firestore.collection('organizations').doc(organizationId).get();
-                        String headownerBoatName = orgSnapshot.get('boatname');
+        if (orgSnapshot.exists) {
+          // Check if the user's role matches the provided organization ID
+          String storedCoownerId = orgSnapshot.get('coownerId');
+          String storedCrewmemberId = orgSnapshot.get('crewmemberId');
 
-                        String collectionName = selectedRole == 'Co-owner' ? 'co-owners' : 'crewmembers';
-                        String subcollectionName = selectedRole == 'Co-owner' ? 'ownerdetails' : 'crewmemberdetails';
+          if ((selectedRole == 'Co-owner' && coownerId == storedCoownerId) ||
+              (selectedRole == 'Crewmember' &&
+                  crewmemberId == storedCrewmemberId)) {
+            // Proceed with account creation
+            userCredential = await _auth.createUserWithEmailAndPassword(
+              email: email,
+              password: password,
+            );
+                          // Fetch boat name from Headowner's organization
+                          String headownerBoatName = orgSnapshot.get('boatname');
 
-                        await _firestore.collection('organizations').doc(organizationId).collection(collectionName).doc(userCredential!.user!.uid).set({
-                          'name': name,
-                          'email': email,
-                          'phone': phone,
-                        });
+                          String collectionName = selectedRole == 'Co-owner' ? 'co-owners' : 'crewmembers';
+                          String subcollectionName = selectedRole == 'Co-owner' ? 'ownerdetails' : 'crewmemberdetails';
 
-                        await _firestore.collection('organizations').doc(organizationId).collection(subcollectionName).doc(userCredential!.user!.uid).set({
-                          'name': name,
-                          'email': email,
-                          'phone': phone,
-                        });
+                          await _firestore.collection('organizations').doc(organizationId).collection(collectionName).doc(userCredential!.user!.uid).set({
+                            'name': name,
+                            'email': email,
+                            'phone': phone,
+                            'invest':0,
+                            'share':0,
+                          });
 
-                        await _firestore.collection('users').doc(userCredential!.user!.uid).set({
-                          'name': name,
-                          'email': email,
-                          'phone': phone,
-                          'boatname': headownerBoatName,
-                          'organizationId': organizationId,
-                          'role': selectedRole,
-                        });
-                      }
+                          await _firestore.collection('organizations').doc(organizationId).collection(subcollectionName).doc(userCredential!.user!.uid).set({
+                            'name': name,
+                            'email': email,
+                            'phone': phone,
+                            'invest':0,
+                            'share':0,
+                          });
 
-                      setState(() {
-                        showSpinner = false;
-                      });
+                          await _firestore.collection('users').doc(userCredential!.user!.uid).set({
+                            'name': name,
+                            'email': email,
+                            'phone': phone,
+                            'boatname': headownerBoatName,
+                            'organizationId': organizationId,
+                            'role': selectedRole,
+                          });
+                        } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Organization ID and $selectedRole ID do not match.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            return;
+          }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Organization ID not found.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+      }
+      setState(() {
+        showSpinner = false;
+      });
 
-                      Navigator.pop(context);
-
-                    } catch (e) {
+      Navigator.pop(context);
+    } catch (e) {
                       print(e);
 
-                      String errorMessage = 'An error occurred. Please try again.';
+                      String errorMessage = 'An error occurred. Please check all the details and try again.';
 
                       if (e is FirebaseAuthException) {
                         if (e.code == 'weak-password') {
@@ -340,6 +388,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         showSpinner = false;
                       });
                     }
+                  }
+                  else {
+                      // Show a message or UI indication that all fields are required
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Please fill in all required fields.'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
                   },
                   child: const Text('Create Account'),
                 ),
@@ -351,3 +409,4 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
   }
 }
+

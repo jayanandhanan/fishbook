@@ -41,6 +41,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   double totalInvest = 0.0;
   double remainingAmount = 0.0; 
   double totalCrewAmount = 0.0;
+  double boatMaintenanceAmount = 0.0;
   
   List<Map<String, dynamic>> expensesList = [];
   List<Map<String, dynamic>> revenuesList = [];
@@ -57,7 +58,6 @@ void dispose() {
   super.dispose();
  _fetchOrganizationId();
   crewAmountControllers.values.forEach((controller) => controller.dispose());
-  ownerInvestmentControllers.values.forEach((controller) => controller.dispose());
 }
 
 Future<String?> _fetchOrganizationId() async {
@@ -131,6 +131,28 @@ Future<String?> _fetchOrganizationId() async {
                       : Text('Select Return Date'),
                 ),
               ),
+                            SizedBox(height: 20),
+
+              // Revenues
+              TextFormField(
+                controller: revenueAmountController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(labelText: 'Revenue Amount'),
+              ),
+              SizedBox(height: 10),
+              ElevatedButton(
+                onPressed: () {
+                  if (revenueAmountController.text.isNotEmpty) {
+                    double amount = double.parse(revenueAmountController.text);
+                    revenuesList.add({
+                      'amount': amount,
+                    });
+                    revenueAmountController.clear();
+                    setState(() {});
+                  }
+                },
+                child: Text('Add Revenue'),
+              ),
               SizedBox(height: 20),
 
               // Expenses
@@ -162,29 +184,7 @@ Future<String?> _fetchOrganizationId() async {
                 },
                 child: Text('Add Expense'),
               ),
-              SizedBox(height: 20),
-
-              // Revenues
-              TextFormField(
-                controller: revenueAmountController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(labelText: 'Revenue Amount'),
-              ),
-              SizedBox(height: 10),
-              ElevatedButton(
-                onPressed: () {
-                  if (revenueAmountController.text.isNotEmpty) {
-                    double amount = double.parse(revenueAmountController.text);
-                    revenuesList.add({
-                      'amount': amount,
-                    });
-                    revenueAmountController.clear();
-                    setState(() {});
-                  }
-                },
-                child: Text('Add Revenue'),
-              ),
-              
+             
  SizedBox(height: 20),
               // DataTable to display entered expenses and revenues
             SingleChildScrollView(
@@ -209,13 +209,22 @@ Future<String?> _fetchOrganizationId() async {
     ],
     rows: _buildDataRows(),
   ),),)
-),
+),SizedBox(height: 20),
+ Row(
+              children: [
+                ElevatedButton(
+                  onPressed: () {
+                    _addBoatMaintenanceAmount(context);
+                  },
+                  child: Text('Add Boat Maintenance Amount'),
+                ),
+                SizedBox(width: 10),
+                Text('Boat Maintenance Amount: $boatMaintenanceAmount'),
+              ],
+            ),
               SizedBox(height: 20),
               // Display Total Profit
-              Text('Total Profit: ${_calculateTotalProfit().toStringAsFixed(2)}'),
-              SizedBox(height: 20),
-                  // Display Remaining Amount
-              Text('Remaining Amount After Giving Crewmembers Salary: ${remainingAmount.toStringAsFixed(2)}'),
+              Text('Total Profit: ${_calculateRemainingAmount().toStringAsFixed(2)}'),
               SizedBox(height: 20),
               // Select Crew Members
               ElevatedButton(
@@ -279,8 +288,7 @@ Future<String?> _fetchOrganizationId() async {
       DataColumn(label: Text('Email')),
       DataColumn(label: Text('Invest')),
       DataColumn(label: Text('Share')),
-      DataColumn(label: Text('Profit Amount Share')),
-      DataColumn(label: Text('Remaining Amount Share')),
+       DataColumn(label: Text('Share Amount')),
     ],
     rows: _buildOwnersRows(),
   ),),)
@@ -298,6 +306,8 @@ Future<String?> _fetchOrganizationId() async {
       ),
     );
   }
+
+
 
   List<DataRow> _buildDataRows() {
     List<DataRow> rows = [];
@@ -448,6 +458,7 @@ Future<String?> _fetchOrganizationId() async {
   );
 }
 
+
 double _calculateTotalProfit() {
   double totalExpenses = expensesList.fold(0, (sum, expense) => sum + (expense['expenseamount'] ?? 0.0));
   double totalRevenues = revenuesList.fold(0, (sum, revenue) => sum + (revenue['amount'] ?? 0.0));
@@ -455,13 +466,12 @@ double _calculateTotalProfit() {
 
   if (selectedCrewMemberIds.isEmpty) {
     // If there are no crew members selected, set remaining amount to total profit
-    remainingAmount = totalProfit;
+    remainingAmount = totalProfit- boatMaintenanceAmount;
   }
   
   // Ensure _calculateShareForOwners() is called only when necessary
   if (!updatingShareForOwners) {
     updatingShareForOwners = true;
-    _calculateShareForOwners();
     updatingShareForOwners = false;
   }
   return totalProfit;
@@ -563,49 +573,69 @@ BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeSc
     }
   }
 
-  List<DataRow> _buildCrewMembersRows() {
-    return crewMembers
-        .where((crewMember) => selectedCrewMemberIds.contains(crewMember.id))
-        .map((crewMember) {
-      String memberId = crewMember.id;
-      late TextEditingController amountController;
-      if (crewAmountControllers.containsKey(memberId)) {
-        amountController = crewAmountControllers[memberId]!;
-      } else {
-        amountController = TextEditingController(
-            text: (crewAmounts[memberId] ?? 0.0).toString());
-        crewAmountControllers[memberId] = amountController;
-      }
+bool _isDialogOpen = false; // Boolean flag to track if the dialog is open
+List<DataRow> _buildCrewMembersRows() {
+  if (_isDialogOpen) {
+    // Don't display the table if the dialog is open
+    return [];
+  } else {
+    // Display the table only after the dialog is closed
+    if (selectedCrewMemberIds.isNotEmpty) {
+      return selectedCrewMemberIds.map((memberId) {
+        DocumentSnapshot crewMember =
+            crewMembers.firstWhere((member) => member.id == memberId);
+        TextEditingController amountController =
+            crewAmountControllers.putIfAbsent(memberId, () => TextEditingController());
 
-      return DataRow(
-        cells: [
-          DataCell(Text(crewMember['name']?.toString() ?? '')),
-          DataCell(Text(crewMember['phone']?.toString() ?? '')),
-          DataCell(Text(crewMember['email']?.toString() ?? '')),
-          DataCell(
-            SizedBox(
-              width: 100,
-              child: TextFormField(
-                controller: amountController,
-                keyboardType: TextInputType.number,
-                onChanged: (value) {
-                  double amount = double.tryParse(value) ?? 0.0;
-                  crewAmounts[memberId] = amount;
-                  setState(() {
-                    remainingAmount = _calculateRemainingAmount();
-                  });
-                },
+        // Set the initial value of the text field
+        amountController.text = crewAmounts[memberId]?.toString() ?? '';
+
+        return DataRow(
+          cells: [
+            DataCell(Text(crewMember['name']?.toString() ?? '')),
+            DataCell(Text(crewMember['phone']?.toString() ?? '')),
+            DataCell(Text(crewMember['email']?.toString() ?? '')),
+            DataCell(
+              SizedBox(
+                width: 100,
+                child: Focus(
+                  onFocusChange: (hasFocus) {
+                    if (!hasFocus) {
+                      // When focus is lost, update the crewAmounts
+                      double amount = double.tryParse(amountController.text) ?? 0.0;
+                      crewAmounts[memberId] = amount;
+                      setState(() {
+                        remainingAmount = _calculateRemainingAmount();
+                      });
+                    }
+                  },
+                  child: TextFormField(
+                    controller: amountController,
+                    keyboardType: TextInputType.number,
+                    onChanged: (value) {
+                      // No need to update crewAmounts here
+                    },
+                  ),
+                ),
               ),
             ),
-          ),
-        ],
-      );
-    }).toList();
+          ],
+        );
+      }).toList();
+    } else {
+      return [];
+    }
   }
+}
 
 Future<void> _selectCrewMembers(BuildContext context) async {
-    double totalProfit = _calculateTotalProfit();
+  TextEditingController amountController = TextEditingController();
+  double enteredAmount = 0.0; // Store the entered amount
+
   try {
+    // Set the flag to true when the dialog is opened
+    _isDialogOpen = true;
+
     // Retrieve the current user
     User? user = _auth.currentUser;
 
@@ -621,81 +651,119 @@ Future<void> _selectCrewMembers(BuildContext context) async {
         await showDialog(
           context: context,
           builder: (BuildContext context) {
-            return AlertDialog(
-              title: Text('Select Crew Members'),
-              content: StatefulBuilder(
-                builder: (BuildContext context, StateSetter setState) {
-                  return Container(
+            return StatefulBuilder(
+              builder: (BuildContext context, StateSetter setState) {
+                return AlertDialog(
+                  title: Text('Select Crew Members'),
+                  content: Container(
                     height: 300,
                     width: double.maxFinite,
-                    child: FutureBuilder(
-                      future: FirebaseFirestore.instance
-                          .collection('organizations')
-                          .doc(organizationId)
-                          .collection('crewmemberdetails')
-                          .get(),
-                      builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return CircularProgressIndicator();
-                        }
-
-                        if (snapshot.hasError) {
-                          return Text('Error: ${snapshot.error}');
-                        }
-
-                        crewMembers = snapshot.data?.docs ?? [];
-
-                        return ListView.builder(
-                          itemCount: crewMembers.length,
-                          itemBuilder: (BuildContext context, int index) {
-                            DocumentSnapshot crewMember = crewMembers[index];
-                            bool isSelected = selectedCrewMemberIds.contains(crewMember.id);
-
-                            return CheckboxListTile(
-                              title: Text(crewMember['name']?.toString() ?? ''),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(crewMember['phone']?.toString() ?? ''),
-                                  Text(crewMember['email']?.toString() ?? ''),
-                                ],
-                              ),
-                              value: isSelected,
-                              onChanged: (bool? newBool) {
-                                setState(() {
-                                  if (newBool != null) {
-                                    if (newBool) {
-                                      selectedCrewMemberIds.add(crewMember.id);
-                                    } else {
-                                      selectedCrewMemberIds.remove(crewMember.id);
-                                      // Dispose of the amount controller when unselecting
-                                      crewAmountControllers[crewMember.id]?.dispose();
-                                      crewAmountControllers.remove(crewMember.id);
-                                    }
- double remainingAmount = newBool
-        ? _calculateRemainingAmount()
-        : totalProfit - _calculateTotalCrewAmount(); // Subtract unselected crew member's amount
-      _updateCrewAmountAndRemaining(remainingAmount);
-                                  }
-                                });
-                              },
-                            );
+                    child: Column(
+                      children: [
+                        TextFormField(
+                          controller: amountController,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(labelText: 'Enter Amount'),
+                          onChanged: (value) {
+                            setState(() {
+                              // Update entered amount
+                              enteredAmount = double.tryParse(value) ?? 0.0;
+                              // Update crew member amount based on entered amount
+                              selectedCrewMemberIds.forEach((memberId) {
+                                crewAmounts[memberId] = enteredAmount;
+                              });
+                            });
                           },
-                        );
-                      },
+                        ),
+                        SizedBox(height: 10),
+                        Expanded(
+                          child: FutureBuilder(
+                            future: FirebaseFirestore.instance
+                                .collection('organizations')
+                                .doc(organizationId)
+                                .collection('crewmemberdetails')
+                                .get(),
+                            builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
+                              if (snapshot.connectionState == ConnectionState.waiting) {
+                                return CircularProgressIndicator();
+                              }
+
+                              if (snapshot.hasError) {
+                                return Text('Error: ${snapshot.error}');
+                              }
+
+                              crewMembers = snapshot.data?.docs ?? [];
+
+                              return ListView.builder(
+                                itemCount: crewMembers.length,
+                                itemBuilder: (BuildContext context, int index) {
+                                  DocumentSnapshot crewMember = crewMembers[index];
+                                  bool isSelected = selectedCrewMemberIds.contains(crewMember.id);
+
+                                  return Column(
+                                    children: [
+                                      CheckboxListTile(
+                                        title: Text(crewMember['name']?.toString() ?? ''),
+                                        subtitle: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(crewMember['phone']?.toString() ?? ''),
+                                            Text(crewMember['email']?.toString() ?? ''),
+                                          ],
+                                        ),
+                                        value: isSelected,
+                                        onChanged: (bool? newBool) {
+                                          setState(() {
+                                            if (newBool != null) {
+                                              if (newBool) {
+                                                selectedCrewMemberIds.add(crewMember.id);
+                                              } else {
+                                                selectedCrewMemberIds.remove(crewMember.id);
+                                                // Dispose of the amount controller when unselecting
+                                                crewAmountControllers[crewMember.id]?.dispose();
+                                                crewAmountControllers.remove(crewMember.id);
+                                              }
+                                              // Update crew member amount based on entered amount
+                                              crewAmounts[crewMember.id] = enteredAmount;
+                                              // Update remaining amount and shares
+                                              double remainingAmount = _calculateRemainingAmount();
+                                              _updateCrewAmountAndRemaining(remainingAmount);
+                                              ownerRemainingAmountShares.forEach((ownerId, ownerShare) {
+                                                ownerRemainingAmountShares[ownerId] =
+                                                    _calculateRemainingAmountShares(ownerShares[ownerId]!, remainingAmount);
+                                              });
+                                            }
+                                          });
+                                        },
+                                      ),
+                                      SizedBox(height: 10),
+                                    ],
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                        ElevatedButton(
+                          onPressed: () {
+                            // Recalculate remaining amount and shares
+                            double remainingAmount = _calculateRemainingAmount();
+                            _updateCrewAmountAndRemaining(remainingAmount);
+                            ownerRemainingAmountShares.forEach((ownerId, ownerShare) {
+                              ownerRemainingAmountShares[ownerId] =
+                                  _calculateRemainingAmountShares(ownerShares[ownerId]!, remainingAmount);
+                            });
+                            // Set the flag to false when the dialog is closed
+                            _isDialogOpen = false;
+                            Navigator.pop(context);
+                          },
+                          child: Text('Done'),
+                        ),
+                      ],
                     ),
-                  );
-                },
-              ),
-              actions: [
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    setState(() {});
-                  },
-                  child: Text('Done'),
-                ),
-              ],
+                  ),
+                );
+              },
             );
           },
         );
@@ -710,6 +778,7 @@ Future<void> _selectCrewMembers(BuildContext context) async {
   }
 }
 
+
 double _calculateTotalCrewAmount() {
   return selectedCrewMemberIds.fold(0, (sum, memberId) => sum + (crewAmounts[memberId] ?? 0.0));
 }
@@ -718,22 +787,64 @@ double _calculateRemainingAmount() {
   double totalExpenses = expensesList.fold(0, (sum, expense) => sum + (expense['expenseamount'] ?? 0.0));
   double totalRevenues = revenuesList.fold(0, (sum, revenue) => sum + (revenue['amount'] ?? 0.0));
   double totalProfit = totalRevenues - totalExpenses;
-  double remainingAmount;
+  double remainingAmount = 0.0;
+
+  // Subtract boat maintenance amount from the total profit
+  totalProfit -= boatMaintenanceAmount;
+
   if (crewAmounts.isEmpty) {
-    // If there are no crew amounts, set remaining amount to total profit
-     setState(() {
-      remainingAmount = totalProfit;
-    });
-    return totalProfit;
+    remainingAmount = totalProfit;
   } else {
-    // Calculate total crew amount if crew amounts are present
     double totalCrewAmount = _calculateTotalCrewAmount();
     remainingAmount = totalProfit - totalCrewAmount;
-    setState(() {
-      this.remainingAmount = remainingAmount;
-    });
   }
+
+  setState(() {
+    this.remainingAmount = remainingAmount;
+  });
+
   return remainingAmount;
+}
+
+void _addBoatMaintenanceAmount(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      double? newAmount = 0.0;
+      return AlertDialog(
+        title: Text('Add Boat Maintenance Amount'),
+        content: TextFormField(
+          keyboardType: TextInputType.number,
+          onChanged: (value) {
+            newAmount = double.tryParse(value) ?? 0.0;
+          },
+          decoration: InputDecoration(labelText: 'Enter Amount'),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                boatMaintenanceAmount = newAmount ?? 0.0;
+                remainingAmount = _calculateRemainingAmount();
+                // Update remaining amount shares after updating remaining amount
+                ownerRemainingAmountShares.forEach((ownerId, ownerShare) {
+                  ownerRemainingAmountShares[ownerId] = _calculateRemainingAmountShares(ownerShares[ownerId]!, remainingAmount);
+                });
+              });
+              Navigator.of(context).pop();
+            },
+            child: Text('Add'),
+          ),
+        ],
+      );
+    },
+  );
 }
 
 void _updateCrewAmountAndRemaining(double remainingAmount) {
@@ -742,95 +853,47 @@ void _updateCrewAmountAndRemaining(double remainingAmount) {
   });
 }
 
-void _calculateShareForOwners() {
-  double totalProfit = _calculateTotalProfit();
-  double remainingAmount = _calculateRemainingAmount();
-  totalInvest = _calculateTotalInvest();
-
-  for (var owner in owners) {
-    if (selectedOwnerIds.contains(owner.id)) {
-      double ownerInvest = ownerInvestments[owner.id] ?? 0;
-      double share = _calculateShare(ownerInvest, totalInvest);
-      double profitShareAmount = totalProfit > 0 ? (share / 100) * totalProfit : 0; // Calculate profit share only if total profit is non-zero
-      double remainingAmountShare = remainingAmount > 0 ? (share / 100) * remainingAmount : 0;
-      setState(() {
-        ownerShares[owner.id] = share;
-        ownerProfitShares[owner.id] = profitShareAmount;
-        ownerRemainingAmountShares[owner.id] = remainingAmountShare;
-      });
-    }
-  }
+double _calculateRemainingAmountShares(double ownerShare, double remainingAmount) {
+  double remainingAmountAfterMaintenance = remainingAmount ;
+  double remainingAmountShare = remainingAmountAfterMaintenance > 0 ? (ownerShare / 100) * remainingAmountAfterMaintenance : 0;
+  return double.parse(remainingAmountShare.toStringAsFixed(2));
 }
 
-  double _calculateShare(double invest, double totalInvest) {
-    return invest > 0 && totalInvest > 0 ? (invest / totalInvest) * 100 : 0;
-  }
-
-  double _calculateTotalInvest() {
-    double total = 0;
-    for (var ownerId in ownerInvestments.keys) {
-      if (selectedOwnerIds.contains(ownerId)) {
-        total += ownerInvestments[ownerId] ?? 0;
-      }
-    }
-    return total;
-  }
 
 List<DataRow> _buildOwnersRows() {
   return owners
       .where((owner) => selectedOwnerIds.contains(owner.id))
       .map((owner) {
-    String ownerId = owner.id;
-    late TextEditingController investmentController;
-    if (ownerInvestmentControllers.containsKey(ownerId)) {
-      investmentController = ownerInvestmentControllers[ownerId]!;
-    } else {
-      investmentController = TextEditingController(
-          text: (ownerInvestments[ownerId] ?? 0.0).toString());
-      ownerInvestmentControllers[ownerId] = investmentController;
-      
-    }
+    double share = double.parse(owner['share'] ?? '0.0'); // Convert share to double
+    double remainingAmountShare = _calculateRemainingAmountShares(share, remainingAmount);
+
+    // Format remainingAmountShare to display with two digits after the decimal point
+    String formattedRemainingAmountShare = remainingAmountShare.toStringAsFixed(2);
 
     return DataRow(
       cells: [
         DataCell(Text(owner['name']?.toString() ?? '')),
         DataCell(Text(owner['phone']?.toString() ?? '')),
         DataCell(Text(owner['email']?.toString() ?? '')),
-        DataCell(
-          TextFormField(
-            controller: investmentController,
-            keyboardType: TextInputType.number,
-            onChanged: (value) {
-              double investment = double.tryParse(value) ?? 0.0;
-              setState(() {
-                ownerInvestments[ownerId] = investment;
-                  _calculateShareForOwners();
-              });
-            },
-           
-          ),
-        ),
-        DataCell(Text(ownerShares[owner.id]?.toString() ?? '0.0')), // Display owner's share
-        DataCell(Text(ownerProfitShares[owner.id]?.toString() ?? '0.0')), // Display profit share amount // Always display '0' for double share
-        DataCell(Text(ownerRemainingAmountShares[owner.id]?.toString() ?? '0.0')), // Display remaining amount share
-       ],
+        DataCell(Text(owner['invest']?.toString() ?? '0.0')), // Display owner's investment from owner details
+        DataCell(Text(share.toString())), // Display owner's share from owner details
+        DataCell(Text(formattedRemainingAmountShare)), // Display remaining amount share with two digits after the decimal point
+      ],
     );
   }).toList();
 }
 
+
 Future<void> _selectOwners(BuildContext context) async {
   try {
-    // Retrieve the current user
     User? user = _auth.currentUser;
     if (user != null) {
-      // Retrieve user's organization ID from Firestore
       DocumentSnapshot userDoc =
           await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
 
       if (userDoc.exists) {
         String organizationId = userDoc['organizationId'];
 
-        // Proceed with your dialog to select owners using the obtained organizationId
         await showDialog(
           context: context,
           builder: (BuildContext context) {
@@ -871,6 +934,7 @@ Future<void> _selectOwners(BuildContext context) async {
                                 children: [
                                   Text(owner['phone']?.toString() ?? ''),
                                   Text(owner['email']?.toString() ?? ''),
+                                  Text('Share: ${owner['share']?.toString() ?? '0.0'}'),
                                 ],
                               ),
                               value: isChecked,
@@ -881,11 +945,9 @@ Future<void> _selectOwners(BuildContext context) async {
                                       selectedOwnerIds.add(owner.id);
                                     } else {
                                       selectedOwnerIds.remove(owner.id);
-                                      // Dispose of the investment controller when unselecting
-                                      ownerInvestmentControllers[owner.id]?.dispose();
-                                      ownerInvestmentControllers.remove(owner.id);
                                     }
-                                     _calculateShareForOwners();
+                                    // Calculate remaining amount share when selecting/deselecting
+                                    _calculateRemainingAmountShares(double.parse(owner['share'] ?? '0.0'), remainingAmount);
                                   }
                                 });
                               },
@@ -919,6 +981,7 @@ Future<void> _selectOwners(BuildContext context) async {
     print('Error selecting owners: $e');
   }
 }
+
 
 Future<void> _addNewEntry() async {
  // Prevent multiple submissions
@@ -971,6 +1034,10 @@ Future<void> _addNewEntry() async {
             // If the organization exists and necessary fields are selected, add new entry directly
             DocumentReference newEntryDocRef = organizationDocRef.collection('newentry').doc();
 
+              // Create boatmaintenanceamounts subcollection
+              CollectionReference boatMaintenanceCollection =
+                  organizationDocRef.collection('boatmaintenanceamounts');
+
             // Add fields for the new entry
             await newEntryDocRef.set({
               'monthconsidered': selectedMonth,
@@ -978,6 +1045,7 @@ Future<void> _addNewEntry() async {
               'returndate': selectedReturnDate,
               'totalprofit': _calculateTotalProfit(),
               'remainingamount': _calculateRemainingAmount(),
+              'boatmaintenanceamount': boatMaintenanceAmount ?? 0.0,
             });
 
             // Add subcollections
@@ -985,6 +1053,15 @@ Future<void> _addNewEntry() async {
             await _addExpenseSubcollection(newEntryDocRef);
             await _addSalaryToCrewMembersSubcollection(newEntryDocRef,organizationId);
             await _addOwnerShareSubcollection(newEntryDocRef,organizationId);
+
+              // Create document in boatmaintenanceamounts subcollection
+              await boatMaintenanceCollection.doc(newEntryDocRef.id).set({
+                'sailingdate': selectedSailingDate,
+                'returndate': selectedReturnDate,
+                'boatmaintenanceamount': boatMaintenanceAmount ?? 0.0,
+                'remainingboatmaintenanceamount':boatMaintenanceAmount ?? 0.0,
+                'usedamount':0.0,
+              });
 
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -1084,20 +1161,22 @@ Future<void> _addExpenseSubcollection(DocumentReference newEntryDocRef) async {
     await expenseCollection.add(expenseEntry);
   }
 }
-
 Future<void> _addOwnerShareSubcollection(DocumentReference newEntryDocRef, String organizationId) async {
   CollectionReference ownerShareCollection = newEntryDocRef.collection('ownershare');
   CollectionReference paymentDetailsCollection = FirebaseFirestore.instance.collection('organizations').doc(organizationId).collection('paymentdetails');
 
- // Retrieve the ID of newEntryDocRef
+  // Retrieve the ID of newEntryDocRef
   String newEntryDocId = newEntryDocRef.id;
 
   // Get the current datetime
   DateTime currentDate = DateTime.now();
-DateTime currentDateWithoutTime = DateTime(currentDate.year, currentDate.month, currentDate.day);
+  DateTime currentDateWithoutTime = DateTime(currentDate.year, currentDate.month, currentDate.day);
 
   for (var ownerId in selectedOwnerIds) {
     var owner = owners.firstWhere((element) => element.id == ownerId);
+
+    // Calculate remaining amount share
+    double remainingAmountShare = _calculateRemainingAmountShares(double.parse(owner['share'] ?? '0.0'), remainingAmount);
 
     // Use the ownerId as the document ID for ownerShareCollection
     DocumentReference ownerShareDocRef = ownerShareCollection.doc(ownerId);
@@ -1105,18 +1184,13 @@ DateTime currentDateWithoutTime = DateTime(currentDate.year, currentDate.month, 
     // Generate unique document ID for paymentdetails
     DocumentReference paymentDocRef = paymentDetailsCollection.doc();
 
-    double totalProfit = _calculateTotalProfit();
-    double profitShareAmount = _calculateProfitShareAmount(ownerShares[ownerId]!, totalProfit);
-    double remainingAmountShare = _calculateRemainingAmountShare(ownerShares[ownerId]!, remainingAmount);
-
     await ownerShareDocRef.set({
       'name': owner['name'],
       'phone': owner['phone'],
       'email': owner['email'],
-      'invest': ownerInvestments[ownerId],
-      'share': ownerShares[ownerId],
-      'profitshareamount': profitShareAmount,
-      'remainingamountshare': remainingAmountShare,
+      'invest': owner['invest'],
+      'share': owner['share'],
+      'remainingamountshare': remainingAmountShare.toStringAsFixed(2), // Convert to string with two decimal places
     });
 
     // Set inchargeId as ownerId in the paymentdetails document
@@ -1124,10 +1198,9 @@ DateTime currentDateWithoutTime = DateTime(currentDate.year, currentDate.month, 
       'name': owner['name'],
       'phone': owner['phone'],
       'email': owner['email'],
-      'invest': ownerInvestments[ownerId],
-      'share': ownerShares[ownerId],
-      'profitshareamount': profitShareAmount,
-      'remainingamountshare': remainingAmountShare,
+      'invest': owner['invest'],
+      'share': owner['share'],
+      'remainingamountshare': remainingAmountShare.toStringAsFixed(2), // Convert to string with two decimal places
       'user': 'Owner',
       'payment': 'Not Paid',
       'paidamount':'0.0',
@@ -1140,18 +1213,4 @@ DateTime currentDateWithoutTime = DateTime(currentDate.year, currentDate.month, 
   }
 }
 
-
-double _calculateRemainingAmountShare(double sharePercentage, double remainingAmount) {
-  double remainingAmount = _calculateRemainingAmount();
-  // Calculate the remaining amount share based on the share percentage and the remaining amount
-  double remainingAmountShare = remainingAmount > 0 ? (sharePercentage / 100.0) * remainingAmount : 0;
-  return remainingAmountShare;
-}
-
-double _calculateProfitShareAmount(double sharePercentage, double totalProfit) {
-  double totalProfit = _calculateTotalProfit();
-  // Calculate the profit share amount based on the share percentage and the total profit
-  double profitShareAmount = totalProfit > 0 ? (sharePercentage / 100.0) * totalProfit : 0;
-  return profitShareAmount;
-}
 }

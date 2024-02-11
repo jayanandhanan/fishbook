@@ -174,7 +174,7 @@ Future<void> _addToDatabase(BuildContext context, String organizationId, String 
         'year': _extractYearBasedOnMonthConsidered(entry['monthconsidered'], entry['sailingdate'], entry['returndate']),
         'revenue': await _calculateTotalAmount(entry.reference.collection('revenue'), 'amount'),
         'expense': await _calculateTotalAmount(entry.reference.collection('expense'), 'expenseamount'),
-        'profit': entry['totalprofit'],
+        'profit': entry['remainingamount'],
         'sailingdate': entry['sailingdate'], // Add sailing date
         'returndate': entry['returndate'],   // Add return date
       });
@@ -304,7 +304,7 @@ Widget _buildFinanceTable(String organizationId, String userRole) {
 
     for (final newEntry in newEntries) {
       final monthConsidered = newEntry['monthconsidered'];
-      final totalProfit = newEntry['totalprofit'];
+      final totalProfit = newEntry['remainingamount'];
       final sailingDate = newEntry['sailingdate'] as Timestamp;
       final returnDate = newEntry['returndate'] as Timestamp;
       final year = _extractYearBasedOnMonthConsidered(monthConsidered, sailingDate, returnDate);

@@ -20,6 +20,8 @@ class _WorkManagementPageState extends State<WorkManagementPage> {
   final TextEditingController inchargeController = TextEditingController();
   final TextEditingController selectedDateController = TextEditingController();
   final TextEditingController paidAmountController = TextEditingController();
+  final TextEditingController selectedSailingDateController = TextEditingController();
+
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   DateTime selectedDate = DateTime.now();
@@ -27,7 +29,8 @@ class _WorkManagementPageState extends State<WorkManagementPage> {
   String selectedInChargeType = '';
   String? selectedInChargeId;
   String? selectedInChargeName;
-
+  String? selectedMaintenanceDocumentId;
+  String selectedRemainingMaintenanceAmount = '';
   List<String> ownerNames = [];
   List<String> crewMemberNames = [];
 
@@ -64,19 +67,22 @@ class _WorkManagementPageState extends State<WorkManagementPage> {
     super.initState();
     _fetchOwnerDetails();
     _fetchCrewMemberDetails();
-    _fetchUserRole();
+    _fetchUserRoleAndOrganizationId();
   }
   
-  Future<void> _fetchUserRole() async {
-    String? userId = FirebaseAuth.instance.currentUser?.uid;
-    if (userId != null) {
-      DocumentSnapshot userSnapshot =
-          await FirebaseFirestore.instance.collection('users').doc(userId).get();
-      setState(() {
-        userRole = userSnapshot['role']; // Assign the user role to the variable
-      });
-    }
+ Future<void> _fetchUserRoleAndOrganizationId() async {
+  String? userId = FirebaseAuth.instance.currentUser?.uid;
+  if (userId != null) {
+    DocumentSnapshot userSnapshot =
+        await FirebaseFirestore.instance.collection('users').doc(userId).get();
+    setState(() {
+      userRole = userSnapshot['role']; // Assign the user role to the variable
+      organizationId = userSnapshot['organizationId']; // Assign the organizationId
+    });
   }
+}
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -371,6 +377,7 @@ if (isCrewMemberInChargeFilterActive && filterByCrewMemberInCharge != null && fi
       DataColumn(label: Text('Payment Date')),
       DataColumn(label: Text('Mode of Payment')), 
       DataColumn(label: Text('Incharge')),
+       DataColumn(label: Text('Assigned Sailing Date')),
       if (userRole == 'Headowner')
       DataColumn(label: Text('Actions')),
     ];
@@ -396,6 +403,7 @@ if (isCrewMemberInChargeFilterActive && filterByCrewMemberInCharge != null && fi
       DataCell(Text(_formatDate((work['paymentdate'] as Timestamp).toDate()))),
       DataCell(Text(work['modeofpayment'])),
       DataCell(Text(work['incharge'])),
+       DataCell(Text(_formatDate((work['assignedSailingDate'] as Timestamp).toDate()))), // New cell
       if (userRole == 'Headowner')
       DataCell(
         Row(
@@ -522,6 +530,17 @@ Widget _buildPaymentDateField(BuildContext context) {
               _buildPaymentDateField(context),            
               _buildDropdownField('Mode of Payment', paymentModeOptions, selectedModeOfPayment),
               _buildInChargeSelection(),
+               TextFormField(
+              controller: selectedSailingDateController,
+              enabled: false,
+              decoration: InputDecoration(labelText: 'Assigned Sailing Date'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                _showAssignSailingDateDialog();
+              },
+              child: Text('Assign Sailing Date'),
+            ),
             ],
           ),
         ),
@@ -543,7 +562,62 @@ Widget _buildPaymentDateField(BuildContext context) {
     );
   }
 
- void addWork(BuildContext context) async {
+
+void _showAssignSailingDateDialog() {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text('Select Sailing Date'),
+        content: Container(
+          width: double.maxFinite,
+          child: FutureBuilder<QuerySnapshot>(
+            future: FirebaseFirestore.instance
+                .collection('organizations')
+                .doc(organizationId) // Use the fetched organizationId
+                .collection('boatmaintenanceamounts')
+                .get(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return CircularProgressIndicator();
+              }
+              if (snapshot.hasError) {
+                return Text('Error: ${snapshot.error}');
+              }
+              List<DocumentSnapshot> documents = snapshot.data!.docs;
+              return ListView.builder(
+                itemCount: documents.length,
+                itemBuilder: (context, index) {
+                  var document = documents[index];
+                  Timestamp sailingDateTimestamp = document['sailingdate'];
+                  DateTime sailingDate = sailingDateTimestamp.toDate();
+                  String formattedDate = DateFormat('dd-MM-yyyy').format(sailingDate);
+                  return ListTile(
+                    title: Text('Sailing Date: $formattedDate'),
+                    subtitle: Text('Remaining Maintenance Amount: ${document['remainingboatmaintenanceamount']}'),
+                    onTap: () {
+                      // Pass selected document ID and sailing date back to the caller
+                      Navigator.pop(context, {'documentId': document.id, 'sailingDate': formattedDate});
+                    },
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      );
+    },
+  ).then((value) {
+    if (value != null) {
+      // Handle the selected document ID and sailing date here
+      selectedMaintenanceDocumentId = value['documentId'];
+      selectedSailingDateController.text = value['sailingDate'];
+    }
+  });
+}
+
+
+void addWork(BuildContext context) async {
   if (_formKey.currentState!.validate()) {
     String amount = amountController.text;
     String paidAmount = paidAmountController.text.isNotEmpty ? paidAmountController.text : '0';
@@ -573,74 +647,92 @@ Widget _buildPaymentDateField(BuildContext context) {
     final organizationId = userSnapshot.data()?['organizationId'];
     final workRef = FirebaseFirestore.instance.collection('organizations').doc(organizationId).collection('workmanagement');
 
+    // Get the selected boat maintenance document
+    final selectedBoatDocRef = FirebaseFirestore.instance.collection('organizations')
+        .doc(organizationId).collection('boatmaintenanceamounts').doc(selectedMaintenanceDocumentId);
+    final selectedBoatDocSnapshot = await selectedBoatDocRef.get();
+    int remainingMaintenanceAmount = selectedBoatDocSnapshot['remainingboatmaintenanceamount'];
 
-   // Check if the incharge was selected from the owner details
-    if (selectedInChargeType == 'Owner') {
-      // If selected from owner details, set the user field in Firestore as 'Owner'
-      final userSnapshot = await _getCurrentUser();
-      final organizationId = userSnapshot.data()?['organizationId'];
-      final workRef = FirebaseFirestore.instance.collection('organizations').doc(organizationId).collection('workmanagement');
+    // Check if the amount value is less than or equal to the remaining maintenance amount
+    if (int.parse(amount) <= remainingMaintenanceAmount) {
+      try {
+        // Proceed with adding work
+        final newDocRef = workRef.doc();
+        Timestamp sailingDateTimestamp = selectedBoatDocSnapshot['sailingdate'];
 
-      // Generate a new document ID
-      final newDocRef = workRef.doc();
+        await newDocRef.set({
+          'date': selectedDate,
+          'work': workController.text,
+          'amount': amountController.text,
+          'paymentdate': selectedPaymentDate,
+          'modeofpayment': selectedModeOfPayment,
+          'paidamount': paidAmount,
+          'pendingamount': pendingAmount,
+          'payment': selectedPaymentOption,
+          'progress': selectedProgressOption,
+          'incharge': selectedInChargeName,
+          'inchargeid': selectedInChargeId,
+          'user': selectedInChargeType == 'Owner' ? 'Owner' : 'Crew Member',
+          'assignedSailingDate': sailingDateTimestamp,
+          'boatmaintenancedocumentid': selectedMaintenanceDocumentId,
+        });
 
-      // Add work entry with incharge ID and set user as 'Owner'
-      await newDocRef.set({
-        'date': selectedDate,
-        'work': workController.text,
-        'amount': amountController.text,
-        'paymentdate': selectedPaymentDate,
-        'modeofpayment': selectedModeOfPayment,
-        'paidamount': paidAmount,
-        'pendingamount': pendingAmount,
-        'payment': selectedPaymentOption,
-        'progress': selectedProgressOption,
-        'incharge': selectedInChargeName,
-        'inchargeid': selectedInChargeId, // Add the ID of the incharge
-        'user': 'Owner', // Set the user field as 'Owner'
-      });
+        // Update used amount in the boatmaintenanceamounts document
+        int newAmount = int.parse(amount);
+        int currentUsedAmount = selectedBoatDocSnapshot['usedamount'] ?? 0;
+        int updatedUsedAmount = currentUsedAmount + newAmount;
+        int boatMaintenanceAmount = selectedBoatDocSnapshot['boatmaintenanceamount'] ?? 0;
+        int remainingMaintenanceAmount = boatMaintenanceAmount - updatedUsedAmount;
+
+        await selectedBoatDocRef.update({
+          'usedamount': updatedUsedAmount,
+          'remainingboatmaintenanceamount': remainingMaintenanceAmount,
+        });
+
+        // Clear input fields
+        setState(() {
+          dateController.clear();
+          workController.clear();
+          selectedProgressOption = 'Done';
+          amountController.clear();
+          paidAmountController.clear();
+          selectedPaymentOption = 'Paid';
+          paymentdateController.clear();
+          selectedModeOfPayment = 'Cash';
+          inchargeController.clear();
+          selectedSailingDateController.clear();
+        });
+
+        // Show a success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Work added successfully.'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+         Navigator.of(context).pop();
+      } catch (e) {
+        // Show an error message
+        print('Error adding work: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to add work. Please try again later.'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
     } else {
-      // If not selected from owner details, set the user field in Firestore as 'Crew Member'
-      final userSnapshot = await _getCurrentUser();
-      final organizationId = userSnapshot.data()?['organizationId'];
-      final workRef = FirebaseFirestore.instance.collection('organizations').doc(organizationId).collection('workmanagement');
-
-      // Generate a new document ID
-      final newDocRef = workRef.doc();
-
-      // Add work entry with incharge ID and set user as 'Crew Member'
-      await newDocRef.set({
-        'date': selectedDate,
-        'work': workController.text,
-        'amount': amountController.text,
-        'paymentdate': selectedPaymentDate,
-        'modeofpayment': selectedModeOfPayment,
-        'paidamount': paidAmount,
-        'pendingamount': pendingAmount,
-        'payment': selectedPaymentOption,
-        'progress': selectedProgressOption,
-        'incharge': selectedInChargeName,
-        'inchargeid': selectedInChargeId, // Add the ID of the incharge
-        'user': 'Crew Member', // Set the user field as 'Crew Member'
-      });
+      // Show a message indicating that work cannot be added with an amount value more than the remaining boat maintenance amount
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('You cannot add work with an amount value more than the remaining boat maintenance amount. Try assigning other documents.'),
+          duration: Duration(seconds: 3),
+        ),
+      );
     }
-
-    // Clear input fields
-    setState(() {
-      dateController.clear();
-      workController.clear();
-      selectedProgressOption = 'Done';
-      amountController.clear();
-      paidAmountController.clear();
-      selectedPaymentOption = 'Paid';
-      paymentdateController.clear();
-      selectedModeOfPayment = 'Cash';
-      inchargeController.clear();
-    });
-
-    Navigator.of(context).pop();
   }
 }
+
 
   void _showFilterDialog(FilterType filterType) {
     showDialog(
@@ -865,18 +957,22 @@ Widget _buildFilterByProgressDialog(BuildContext context) {
 
 
 
-  Widget _buildTextField(String label, TextEditingController controller) {
-    return TextFormField(
-      controller: controller,
-      decoration: InputDecoration(labelText: label),
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Please enter $label';
-        }
-        return null;
-      },
-    );
-  }
+Widget _buildTextField(String label, TextEditingController controller, {ValueChanged<String>? onChanged}) {
+  return TextFormField(
+    controller: controller,
+    decoration: InputDecoration(
+      labelText: label,
+    ),
+    onChanged: onChanged,
+    validator: (value) {
+      if (value == null || value.isEmpty) {
+        return 'Please enter $label';
+      }
+      return null;
+    },
+  );
+}
+
 
   Widget _buildDropdownField(String label, List<String> options, String value) {
     return DropdownButtonFormField<String>(
@@ -1056,11 +1152,41 @@ void deleteWork(BuildContext context, DocumentSnapshot work) async {
               final organizationId = userSnapshot.data()?['organizationId'];
               final workRef = FirebaseFirestore.instance.collection('organizations').doc(organizationId).collection('workmanagement');
 
+              // Get the boat maintenance document ID from the work document
+              String boatMaintenanceDocumentId = work['boatmaintenancedocumentid'];
+
+              // Convert the amount from string to int
+              int workAmount = int.parse(work['amount'] ?? '0');
+
               // Delete the work entry
               await workRef.doc(work.id).delete();
 
+              // Update the corresponding boat maintenance document
+              final boatMaintenanceRef = FirebaseFirestore.instance.collection('organizations')
+                .doc(organizationId).collection('boatmaintenanceamounts').doc(boatMaintenanceDocumentId);
+
+              final boatMaintenanceSnapshot = await boatMaintenanceRef.get();
+
+              if (boatMaintenanceSnapshot.exists) {
+                // Get the current used amount from the boat maintenance document
+                int currentUsedAmount = boatMaintenanceSnapshot['usedamount'] ?? 0;
+
+                // Calculate the updated used amount and remaining maintenance amount
+                int updatedUsedAmount = currentUsedAmount - workAmount;
+                int totalMaintenanceAmount = boatMaintenanceSnapshot['boatmaintenanceamount'] ?? 0;
+                int remainingMaintenanceAmount = totalMaintenanceAmount - updatedUsedAmount;
+
+                // Update the boat maintenance document
+                await boatMaintenanceRef.update({
+                  'usedamount': updatedUsedAmount,
+                  'remainingboatmaintenanceamount': remainingMaintenanceAmount,
+                });
+              } else {
+                print('Boat maintenance document does not exist');
+              }
+
               setState(() {
-                // Handle deletion accordingly
+                // Handle state update accordingly
               });
             },
             child: Text('Yes'),
@@ -1076,154 +1202,214 @@ void deleteWork(BuildContext context, DocumentSnapshot work) async {
     },
   );
 }
-  
+
 void editWorkDialog(BuildContext context, DocumentSnapshot work) {
+  int previousAmount = int.parse(work['amount'] ?? '0');
   selectedDateController.text = _formatDate((work['date'] as Timestamp).toDate());
   workController.text = work['work'];
   selectedProgressOption = work['progress'];
-  amountController.text = work['amount'];
+  amountController.text = previousAmount.toString();
   paidAmountController.text = work['paidamount'];
   selectedPaymentOption = work['payment'];
   selectedPaymentDateController.text = _formatDate((work['paymentdate'] as Timestamp).toDate());
   selectedModeOfPayment = work['modeofpayment'];
-  selectedInChargeId = work.id;
   selectedInChargeName = work['incharge'];
+  Timestamp assignedSailingDateTimestamp = work['assignedSailingDate'];
+
+  selectedSailingDateController.text = ''; // Set the sailing date field initially empty
+  selectedInChargeId = work.id;
 
   showDialog(
     context: context,
     builder: (BuildContext context) {
-      return AlertDialog(
-        title: Text('Edit Work'),
-        content: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildDateField(context),
-                _buildTextField('Work', workController),
-                _buildDropdownField('Progress', progressOptions, selectedProgressOption),
-                _buildTextField('Amount', amountController),
-                _buildTextField('Paid Amount', paidAmountController),
-                _buildDropdownField('Payment', paymentOptions, selectedPaymentOption),
-                _buildPaymentDateField(context),
-                _buildDropdownField('Mode of Payment', paymentModeOptions, selectedModeOfPayment),
-                
-              ],
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: Text('Edit Work'),
+            content: SingleChildScrollView(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildDateField(context),
+                    _buildTextField('Work', workController),
+                    _buildDropdownField('Progress', progressOptions, selectedProgressOption),
+                    _buildTextField('Amount', amountController),
+                    _buildTextField('Paid Amount', paidAmountController),
+                    _buildDropdownField('Payment', paymentOptions, selectedPaymentOption),
+                    _buildPaymentDateField(context),
+                    _buildDropdownField('Mode of Payment', paymentModeOptions, selectedModeOfPayment),
+                    _buildSailingDateField(context), // Show the sailing date field
+                  ],
+                ),
+              ),
             ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            child: Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              updateWork(work.id);
-            },
-            child: Text('Update'),
-          ),
-        ],
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  if (selectedSailingDateController.text.isEmpty) {
+                    // Prompt the user to select a sailing date if not selected
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Please select a sailing date'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  } else {
+                    int newAmount = int.tryParse(amountController.text) ?? 0;
+                    int difference = newAmount - previousAmount;
+                    bool isWorkUpdated = await updateWork(work.id, previousAmount); // Update the work
+                    if (isWorkUpdated) {
+                      updateUsedAmount(newAmount, difference, assignedSailingDateTimestamp); // Update used amount
+                      Navigator.of(context).pop(); // Close the dialog
+                    }
+                  }
+                },
+                child: Text('Update'),
+              ),
+            ],
+          );
+        },
       );
     },
   );
 }
 
- Widget _buildEditWorkDialog(BuildContext context, DocumentSnapshot work) {
-  return AlertDialog(
-    title: Text('Edit Work'),
-    content: SingleChildScrollView(
-      child: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildDateField(context),
-            _buildTextField('Work', workController),
-            _buildDropdownField('Progress', progressOptions, selectedProgressOption),
-            _buildTextField('Amount', amountController),
-            _buildTextField('Paid Amount', paidAmountController),
-            _buildDropdownField('Payment', paymentOptions, selectedPaymentOption),
-            _buildPaymentDateField(context),
-            _buildDropdownField('Mode of Payment', paymentModeOptions, selectedModeOfPayment),
-            // Display the incharge value, disable the field
-            TextFormField(
-              controller: inchargeController,
-              enabled: false,
-              decoration: InputDecoration(labelText: 'Incharge'),
-            ),
-          ],
-        ),
-      ),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () {
-          Navigator.of(context).pop();
-        },
-        child: Text('Cancel'),
-      ),
-      TextButton(
-        onPressed: () {
-          updateWork(work.id);
-        },
-        child: Text('Update'),
-      ),
-    ],
-  );
-}
 
-  void updateWork(String workId) async {
-    if (_formKey.currentState!.validate()) {
-         String amount = amountController.text;
-        String paidAmount = paidAmountController.text.isNotEmpty ? paidAmountController.text : '0';
-    // Calculate pending amount
-       String pendingAmount = (int.parse(amount) - int.parse(paidAmount)).toString();
-      final userSnapshot = await _getCurrentUser();
-      final organizationId = userSnapshot.data()?['organizationId'];
-      final workRef = FirebaseFirestore.instance.collection('organizations').doc(organizationId).collection('workmanagement');
+void updateUsedAmount(int newAmount, int difference, Timestamp assignedSailingDateTimestamp) async {
+  try {
+    if (selectedMaintenanceDocumentId != null) {
+      final selectedBoatDocRef = FirebaseFirestore.instance
+          .collection('organizations')
+          .doc(organizationId)
+          .collection('boatmaintenanceamounts')
+          .doc(selectedMaintenanceDocumentId);
 
-      await workRef.doc(workId).update({
-        'date': selectedDate,
-        'work': workController.text,
-        'amount': amountController.text,
-        'payment': selectedPaymentOption,
-        'modeofpayment': selectedModeOfPayment,
-        'paymentdate': selectedPaymentDate,
-       'paidamount': paidAmount,
-       'pendingamount': pendingAmount,
-        'progress': selectedProgressOption,
-        'incharge': selectedInChargeName,
-      });
-setState(() {
-    isWorkFilterActive = false;
-    isDateFilterActive = false;
-    isProgressFilterActive = false;
-    isPaymentFilterActive = false;
-    isOwnerInChargeFilterActive = false;
-    isCrewMemberInChargeFilterActive = false;
-  });
+      final selectedBoatDocSnapshot = await selectedBoatDocRef.get();
+      if (selectedBoatDocSnapshot.exists) {
+        // Update the used amount in Firestore
+        int currentUsedAmount = selectedBoatDocSnapshot['usedamount'] ?? 0;
+        int updatedUsedAmount = currentUsedAmount + difference;
 
-      setState(() {
-      dateController.clear();
-      workController.clear();
-      selectedProgressOption = 'Done';
-      amountController.clear();
-      paidAmountController.clear();
-      selectedPaymentOption = 'Paid';
-      paymentdateController.clear();
-      selectedModeOfPayment = 'Cash';
-      inchargeController.clear();
-      });
+        // Update the remaining maintenance amount
+        int boatMaintenanceAmount = selectedBoatDocSnapshot['boatmaintenanceamount'] ?? 0;
+        int remainingMaintenanceAmount = boatMaintenanceAmount - updatedUsedAmount;
 
-      Navigator.of(context).pop();
+        // Update the used amount and remaining maintenance amount in Firestore
+        await selectedBoatDocRef.update({
+          'usedamount': updatedUsedAmount,
+          'remainingboatmaintenanceamount': remainingMaintenanceAmount,
+        });
+      } else {
+        print('Document does not exist');
+      }
+    } else {
+      print('Selected maintenance document ID is null');
     }
+  } catch (e) {
+    print('Error updating used amount: $e');
   }
 }
 
+Future<bool> updateWork(String workId, int previousAmount) async {
+  if (_formKey.currentState!.validate()) {
+    String selectedSailingDate = selectedSailingDateController.text;
+
+    // Convert the selected sailing date to a DateTime object
+    DateTime sailingDate = DateFormat('dd-MM-yyyy').parse(selectedSailingDate);
+
+    // Convert the DateTime object to a Timestamp for Firestore
+    Timestamp sailingDateTimestamp = Timestamp.fromDate(sailingDate);
+
+    String amount = amountController.text;
+    String paidAmount = paidAmountController.text.isNotEmpty ? paidAmountController.text : '0';
+    // Calculate pending amount
+    String pendingAmount = (int.parse(amount) - int.parse(paidAmount)).toString();
+
+    final userSnapshot = await _getCurrentUser();
+    final organizationId = userSnapshot.data()?['organizationId'];
+    final workRef = FirebaseFirestore.instance.collection('organizations').doc(organizationId).collection('workmanagement');
+
+    // Fetch the selected maintenance document to get the remaining maintenance amount
+    final selectedBoatDocRef = FirebaseFirestore.instance.collection('organizations')
+        .doc(organizationId)
+        .collection('boatmaintenanceamounts')
+        .doc(selectedMaintenanceDocumentId);
+
+    final selectedBoatDocSnapshot = await selectedBoatDocRef.get();
+    int remainingMaintenanceAmount = selectedBoatDocSnapshot['remainingboatmaintenanceamount'] ?? 0;
+
+    // Check if the amount value is less than or equal to the remaining maintenance amount
+    if (int.parse(amount) <= remainingMaintenanceAmount) {
+      try {
+        await workRef.doc(workId).update({
+          'date': selectedDate,
+          'work': workController.text,
+          'amount': amountController.text,
+          'payment': selectedPaymentOption,
+          'modeofpayment': selectedModeOfPayment,
+          'paymentdate': selectedPaymentDate,
+          'paidamount': paidAmount,
+          'pendingamount': pendingAmount,
+          'progress': selectedProgressOption,
+          'incharge': selectedInChargeName,
+          'assignedSailingDate': sailingDateTimestamp,
+          'boatmaintenancedocumentid': selectedMaintenanceDocumentId,
+        });
+
+        // Update is successful
+        return true;
+      } catch (e) {
+        print('Error updating work: $e');
+        // Update failed
+        return false;
+      }
+    } else {
+      // Work cannot be updated with an amount value more than the remaining boat maintenance amount
+      return false;
+    }
+  }
+  return false;
+}
+
+
+
+Widget _buildSailingDateField(BuildContext context) {
+  return GestureDetector(
+    onTap: () {
+      _showAssignSailingDateDialog(); // Call the function to show the dialog
+    },
+    child: AbsorbPointer(
+      child: TextFormField(
+        controller: selectedSailingDateController,
+        keyboardType: TextInputType.datetime,
+        decoration: InputDecoration(
+          labelText: 'Sailing Date',
+          hintText: 'Select Sailing Date',
+          icon: Icon(Icons.calendar_today),
+        ),
+        validator: (value) {
+          if (value!.isEmpty) {
+            return 'Please select a sailing date';
+          }
+          return null;
+        },
+        onTap: () {
+          _showAssignSailingDateDialog(); // Also call the function on tap
+        },
+      ),
+    ),
+  );
+}
+
+}
   enum FilterType {
     Work,
     Date,
