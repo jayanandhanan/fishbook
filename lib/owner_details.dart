@@ -514,6 +514,7 @@ bool _validateInputs() {
 
       // Recalculate share and update Firestore for all owner details
       _calculateShareForOwners(ownerDetailsRef);
+      Navigator.of(context).pop();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
