@@ -110,8 +110,8 @@ Widget build(BuildContext context) {
                     : '';
 
                 String amountValue = userRole == 'Crewmember'
-                    ? (doc['amount'] ?? 0.0).toStringAsFixed(2)
-                    : (doc['remainingamountshare'] ?? 0.0).toStringAsFixed(2);
+                    ? (doc['amount'] ?? 0.0)
+                    : (doc['remainingamountshare'] ?? 0.0);
 
                 return DataRow(cells: [
                   DataCell(Text(formattedDate)), 

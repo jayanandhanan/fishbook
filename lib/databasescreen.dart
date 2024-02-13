@@ -16,6 +16,7 @@ class DatabaseScreen extends StatefulWidget {
 class _DatabaseScreenState extends State<DatabaseScreen> {
    String organizationId = ''; // To store the organizationId of the current user
    String role ='';
+   String assigned ='';
    bool isHomeScreen = false;
    DateTime? selectedDate;
   @override
@@ -37,11 +38,13 @@ class _DatabaseScreenState extends State<DatabaseScreen> {
     // Extract organizationId and user role from the user document
     String? userOrganizationId = userDoc.get('organizationId');
     String? userRole = userDoc.get('role');
+    String? Assigned = userDoc.get('assigned');
 
-    if (userOrganizationId != null && userRole != null) {
+    if (userOrganizationId != null && userRole != null && Assigned !=null) {
       setState(() {
         organizationId = userOrganizationId;
         role = userRole;
+        assigned = Assigned;
       });
     } else {
       // Handle the case where organizationId or user role is not found
@@ -129,7 +132,7 @@ class _DatabaseScreenState extends State<DatabaseScreen> {
               ],
             ),
               floatingActionButton: Visibility(
-      visible: role == 'Headowner', // Show the FAB only if the role is Headowner
+      visible: role == 'Headowner' || assigned == 'Yes', // Show the FAB only if the role is Headowner
       child: FloatingActionButton(
         onPressed: () {
           // Navigate to the new entry screen
@@ -276,7 +279,7 @@ Widget _buildDatabaseScreen() {
                   Padding(
                     padding: const EdgeInsets.only(left: 16.0),
                      child: Visibility(
-                     visible: role == 'Headowner',
+                     visible: role == 'Headowner' || assigned == 'Yes',
                     child: ElevatedButton(
                       onPressed: () {
                         _showDeleteConfirmationDialog(context, document.id, role);
@@ -338,7 +341,7 @@ void _showDeleteConfirmationDialog(BuildContext context, String documentId, Stri
 }
 
 void _deleteNewEntryDocument(String documentId, String userRole) async {
-  if (userRole != 'Headowner') {
+  if (userRole != 'Headowner' && assigned != 'Yes' ) {
     print('You do not have access to delete the entire entry.');
     return;
   }
@@ -391,7 +394,7 @@ void _deleteNewEntryDocument(String documentId, String userRole) async {
           Row(
             children: [
               Text('Sailing Date: ${_formatDate(document['sailingdate'])}'),
-              if (role == 'Headowner')
+              if (role == 'Headowner' || assigned == 'Yes')
               IconButton(
                 icon: Icon(Icons.edit),
                 onPressed: () => _editSailingDate(
@@ -402,7 +405,7 @@ void _deleteNewEntryDocument(String documentId, String userRole) async {
           Row(
             children: [
               Text('Return Date: ${_formatDate(document['returndate'])}'),
-              if (role == 'Headowner')
+              if (role == 'Headowner' || assigned == 'Yes')
               IconButton(
                 icon: Icon(Icons.edit),
                 onPressed: () => _editReturnDate(
@@ -413,7 +416,7 @@ void _deleteNewEntryDocument(String documentId, String userRole) async {
           Row(
             children: [
               Text('Month Considered: ${document['monthconsidered']}'),
-              if (role == 'Headowner')
+              if (role == 'Headowner' || assigned == 'Yes')
               IconButton(
                 icon: Icon(Icons.edit),
                 onPressed: () => _editMonthConsidered(
@@ -424,7 +427,7 @@ void _deleteNewEntryDocument(String documentId, String userRole) async {
           Row(
           children: [
             Text('Boat Maintenance Amount: ${document['boatmaintenanceamount'] ?? 'N/A'}'),
-            if (role == 'Headowner')
+            if (role == 'Headowner'|| assigned == 'Yes')
             IconButton(
               icon: Icon(Icons.edit),
               onPressed: () => _editBoatMaintenanceAmount(document.id, document['boatmaintenanceamount'] ?? 0.0),
@@ -534,7 +537,7 @@ Future<void> _updateRemainingBoatMaintenanceAmount(String documentId, double new
         Row(
           children: [
             Text(_formatDate(date), style: TextStyle(fontWeight: FontWeight.bold)),
-            if (role == 'Headowner')
+            if (role == 'Headowner'|| assigned == 'Yes')
             IconButton(
               icon: Icon(Icons.edit),
               onPressed: editFunction,
@@ -554,7 +557,7 @@ Future<void> _updateRemainingBoatMaintenanceAmount(String documentId, double new
         Row(
           children: [
             Text(monthConsidered, style: TextStyle(fontWeight: FontWeight.bold)),
-            if (role == 'Headowner')
+            if (role == 'Headowner'|| assigned == 'Yes')
             IconButton(
               icon: Icon(Icons.edit),
               onPressed: editFunction,
@@ -649,7 +652,7 @@ Future<void> _updateRemainingAmount(String documentId) async {
 
  void _editSailingDate(
     String documentId, Timestamp sailingDate, String userRole) async {
-  if (userRole != 'Headowner') {
+  if (userRole != 'Headowner' && assigned != 'Yes') {
     print('You do not have access to edit the sailing date.');
     return;
   }
@@ -683,7 +686,7 @@ Future<void> _updateRemainingAmount(String documentId) async {
 
  void _editReturnDate(
     String documentId, Timestamp returnDate, String userRole) async {
-  if (userRole != 'Headowner') {
+  if (userRole != 'Headowner' && assigned != 'Yes') {
     print('You do not have access to edit the return date.');
     return;
   }
@@ -717,7 +720,7 @@ Future<void> _updateRemainingAmount(String documentId) async {
 
 void _editMonthConsidered(
     String documentId, String monthConsidered, String userRole) async {
-  if (userRole != 'Headowner') {
+  if (userRole != 'Headowner' && assigned != 'Yes') {
     print('You do not have access to edit the month considered.');
     return;
   }
@@ -806,7 +809,7 @@ Widget _buildRevenueExpenseTable(String documentId) {
                 DataColumn(label: Text('Revenue Amount')),
                 DataColumn(label: Text('Expense Name')),
                 DataColumn(label: Text('Expense Amount')),
-                if (role == 'Headowner')
+                if (role == 'Headowner'|| assigned == 'Yes')
                 DataColumn(label: Text('Actions')),
               ],
               rows: _buildRevenueExpenseRows(
@@ -819,7 +822,7 @@ Widget _buildRevenueExpenseTable(String documentId) {
       Padding(
         padding: const EdgeInsets.only(left: 16.0),
          child: Visibility(
-        visible: role == 'Headowner',
+        visible: role == 'Headowner'|| assigned == 'Yes',
         child: ElevatedButton(
           onPressed: () => _addRevenueExpense(documentId),
           child: Text('Add Revenue/Expense'),
@@ -845,36 +848,42 @@ List<DataRow> _buildRevenueExpenseRows(
       String expenseName = expenseDoc != null ? expenseDoc['expensename']?.toString() ?? '' : 'N/A';
       double expenseAmount = expenseDoc != null ? (expenseDoc['expenseamount'] as num?)?.toDouble() ?? 0.0 : 0.0;
 
-      rows.add(DataRow(cells: [
+      List<DataCell> cells = [
         DataCell(Text('$revenueAmount')), // Convert to String for display
         DataCell(Text(expenseName)),
         DataCell(Text('$expenseAmount')), // Convert to String for display
-        DataCell(
-          Row(
-            children: [
-              if (role == 'Headowner') // Always show action icons
+      ];
+
+      if (role == 'Headowner'|| assigned == 'Yes') {
+        cells.add(
+          DataCell(
+            Row(
+              children: [
                 IconButton(
                   icon: Icon(Icons.edit),
                   onPressed: () {
                     _editRevenueExpense(documentId, revenueDoc, expenseDoc, role);
                   },
                 ),
-              if (role == 'Headowner') // Always show action icons
                 IconButton(
                   icon: Icon(Icons.delete),
                   onPressed: () {
                     _deleteRevenueExpense(documentId, revenueDoc, expenseDoc, role);
                   },
                 ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ]));
+        );
+      }
+
+      rows.add(DataRow(cells: cells));
     }
   }
 
   return rows;
 }
+
 
 
 void _addRevenueExpense(String documentId) {
@@ -966,7 +975,7 @@ void _addRevenueExpense(String documentId) {
 
 void _editRevenueExpense(String documentId, DocumentSnapshot? revenue,
     DocumentSnapshot? expense, String userRole) async {
-  if (userRole != 'Headowner') {
+  if (userRole != 'Headowner' && assigned != 'Yes') {
     print('You do not have access to edit revenue and expense.');
     return;
   }
@@ -1065,7 +1074,7 @@ void _editRevenueExpense(String documentId, DocumentSnapshot? revenue,
 
 void _deleteRevenueExpense(String documentId, DocumentSnapshot? revenue,
     DocumentSnapshot? expense, String userRole) async {
-  if (userRole != 'Headowner') {
+  if (userRole != 'Headowner' && assigned != 'Yes') {
     print('You do not have access to delete revenue and expense.');
     return;
   }
@@ -1196,7 +1205,7 @@ Widget _buildCrewMembersTable(String documentId) {
                 DataColumn(label: Text('Email')),
                 DataColumn(label: Text('Phone')),
                 DataColumn(label: Text('Amount')),
-                if (role == 'Headowner')
+                if (role == 'Headowner'|| assigned == 'Yes')
                 DataColumn(label: Text('Actions')),
               ],
               rows: _buildCrewMembersRows(documents,documentId),
@@ -1208,7 +1217,7 @@ Widget _buildCrewMembersTable(String documentId) {
       Padding(
         padding: const EdgeInsets.only(left: 16.0),
          child: Visibility(
-        visible: role == 'Headowner',
+        visible: role == 'Headowner'|| assigned == 'Yes',
         child: ElevatedButton(
           onPressed: () => _addCrewMemberToSalary(documentId),
           
@@ -1235,11 +1244,11 @@ List<DataRow> _buildCrewMembersRows(List<DocumentSnapshot> documents, String doc
       DataCell(Text(email)),
       DataCell(Text(phone)),
       DataCell(Text(amount.toString())),
-      if (role == 'Headowner')
+      if (role == 'Headowner'|| assigned == 'Yes')
       DataCell(Row(
         // Create a row for action buttons
         children: [
-          if (role == 'Headowner')
+          if (role == 'Headowner'|| assigned == 'Yes')
           IconButton(
             icon: Icon(Icons.edit),
             onPressed: () {
@@ -1247,7 +1256,7 @@ List<DataRow> _buildCrewMembersRows(List<DocumentSnapshot> documents, String doc
               _editCrewMemberSalary(doc.reference, role, documentId); // Pass the document ID for editing
             },
           ),
-          if (role == 'Headowner')
+          if (role == 'Headowner'|| assigned == 'Yes')
           IconButton(
             icon: Icon(Icons.delete),
             onPressed: () {
@@ -1266,7 +1275,7 @@ List<DataRow> _buildCrewMembersRows(List<DocumentSnapshot> documents, String doc
 }
 
 void _editCrewMemberSalary(DocumentReference documentReference, String userRole, String documentId) {
-  if (userRole != 'Headowner') {
+  if (userRole != 'Headowner' && assigned != 'Yes') {
     print('You do not have access to edit crew member salaries.');
     return;
   }
@@ -1361,7 +1370,7 @@ void _editCrewMemberSalary(DocumentReference documentReference, String userRole,
 
 
 void _deleteCrewMemberSalary(DocumentReference documentReference, String userRole, String documentId) {
-  if (userRole != 'Headowner') {
+  if (userRole != 'Headowner' && assigned != 'Yes') {
     print('You do not have access to delete crew member salary entries.');
     return;
   }
@@ -1663,8 +1672,9 @@ Widget _buildOwnersShareTable(String documentId) {
                     DataColumn(label: Text('Phone')),
                     DataColumn(label: Text('Invest')),
                     DataColumn(label: Text('Share')),
-                      DataColumn(label: Text('Share Amount')),
-                    if (role == 'Headowner') DataColumn(label: Text('Actions')),
+                    DataColumn(label: Text('Share Amount')),
+                    if (role == 'Headowner'|| assigned == 'Yes') 
+                    DataColumn(label: Text('Actions')),
                   ],
                   rows: _buildOwnersShareRows(documents, documentId),
                 ),
@@ -1675,7 +1685,7 @@ Widget _buildOwnersShareTable(String documentId) {
       ),
       SizedBox(height: 20), // Adjust the spacing between the table and the button
       Visibility(
-        visible: role == 'Headowner',
+        visible: role == 'Headowner'|| assigned == 'Yes',
         child: Padding(
           padding: const EdgeInsets.only(left: 16.0),
           child: ElevatedButton(
@@ -1707,7 +1717,7 @@ List<DataRow> _buildOwnersShareRows(List<QueryDocumentSnapshot> documents, Strin
       DataCell(Text(invest)),
       DataCell(Text(share)),
       DataCell(Text(remainingAmountShare)),
-      if (role == 'Headowner')
+      if (role == 'Headowner'|| assigned == 'Yes')
         DataCell(Row(
           children: [
             IconButton(
@@ -1943,7 +1953,7 @@ Future<void> _addOwnerToShare(String documentId) async {
                         'paidamount': '0.0',
                         'pendingamount': '0.0',
                         'modeofpayment': 'Cash',
-                        'date': Timestamp.fromDate(currentDate),
+                        'paymentdate': Timestamp.fromDate(currentDate),
                         'inchargeid': ownerId, // Set inchargeid as ownerId
                         'newentryid': documentId, // Set newentryid as the documentId
                       });
@@ -1983,7 +1993,7 @@ Future<void> _addOwnerToShare(String documentId) async {
 
 
 Future<void> _deleteOwnerShare(String documentId, String ownerId, String userRole) async {
-  if (userRole != 'Headowner') {
+  if (userRole != 'Headowner' && assigned != 'Yes') {
     print('You do not have access to delete owner shares.');
     return;
   }

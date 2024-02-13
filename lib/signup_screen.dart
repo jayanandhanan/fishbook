@@ -269,16 +269,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           'name': name,
                           'email': email,
                           'phone': phone,
-                          'invest':0,
-                          'share':0,
+                          'invest':'0',
+                          'share':'0',
                         });
 
                         await _firestore.collection('organizations').doc(organizationId).collection('ownerdetails').doc(userCredential!.user!.uid).set({
                           'name': name,
                           'email': email,
                           'phone': phone,
-                          'invest':0,
-                          'share':0,
+                          'invest':'0',
+                          'share':'0',
                         });
 
                         await _firestore.collection('users').doc(userCredential.user!.uid).set({
@@ -288,6 +288,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           'boatname': boatName,
                           'organizationId': organizationId,
                           'role': selectedRole,
+                          'assigned':'Yes',
                         });
 
                       }  else {
@@ -328,8 +329,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             'name': name,
                             'email': email,
                             'phone': phone,
-                            'invest':0,
-                            'share':0,
+                            'invest':'0',
+                            'share':'0',
                           });
 
                           await _firestore.collection('users').doc(userCredential!.user!.uid).set({
@@ -339,6 +340,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             'boatname': headownerBoatName,
                             'organizationId': organizationId,
                             'role': selectedRole,
+                            'assigned':'No',
                           });
                         } else {
             ScaffoldMessenger.of(context).showSnackBar(

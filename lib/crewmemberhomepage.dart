@@ -1,5 +1,7 @@
 // ignore_for_file: unused_field
 
+import 'package:fishbook/financepage.dart';
+import 'package:fishbook/newentryscreen.dart';
 import 'package:fishbook/statementsscreen.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -27,6 +29,7 @@ class CrewmemberHomePage extends StatefulWidget {
 
 class _CrewmemberHomePageState extends State<CrewmemberHomePage> {
   late String _userName = '';
+  String? assigned;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>(); // Add this line
   bool isHomeScreen = true;
   
@@ -34,6 +37,7 @@ class _CrewmemberHomePageState extends State<CrewmemberHomePage> {
   void initState() {
     super.initState();
     _fetchUserData();
+    _fetchAssigned();
   }
 
  Future<void> _fetchUserData() async {
@@ -50,6 +54,16 @@ class _CrewmemberHomePageState extends State<CrewmemberHomePage> {
   }
 }
 
+ Future<void> _fetchAssigned() async {
+    String? userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId != null) {
+      DocumentSnapshot userSnapshot =
+          await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      setState(() {
+        assigned = userSnapshot['assigned'];
+      });
+    }
+  }
 
  @override
 Widget build(BuildContext context) {
@@ -130,7 +144,10 @@ Widget build(BuildContext context) {
                   crossAxisSpacing: 40,
                   mainAxisSpacing: 30,
                   children: [
-                   
+                    if(assigned == 'Yes')
+                     itemDashboard('Finance', Icons.account_balance_wallet, Colors.deepOrange, () {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => FinancePage()));
+                    }),
                     itemDashboard('Work', Icons.work, Colors.green, () {
                       Navigator.push(context, MaterialPageRoute(builder: (context) => WorkManagementPage()));
                     }),
@@ -140,7 +157,10 @@ Widget build(BuildContext context) {
                     itemDashboard('Fishing Payment', Icons.attach_money, Colors.indigo, () {
                       Navigator.push(context, MaterialPageRoute(builder: (context) => FishingSailPayment()));
                     }),
-                   
+                    if(assigned == 'Yes')
+                    itemDashboard('New Entry', Icons.add, Colors.orange, () {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => NewEntryScreen()));
+                    }),
                     itemDashboard('Organization IDs', Icons.credit_card, Colors.yellow, () {
                       Navigator.push(context, MaterialPageRoute(builder: (context) => IDScreen()));
                     }),
@@ -151,6 +171,8 @@ Widget build(BuildContext context) {
                       Navigator.push(context, MaterialPageRoute(builder: (context) => MyFishingSailScreen()));
                     }),
                   ],
+                   
+                   
                 ),
               ),
             ),
@@ -171,7 +193,7 @@ Widget build(BuildContext context) {
               color: Colors.blue,
             ),
             child: Text(
-              'Dashboard',
+              'User Details',
               style: TextStyle(
                 color: Colors.black,
                 fontSize: 25,

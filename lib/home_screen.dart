@@ -1,5 +1,7 @@
 // ignore_for_file: unused_field
 
+import 'package:fishbook/assignaccesspage.dart';
+import 'package:fishbook/boatmaintenanceamountpay.dart';
 import 'package:fishbook/statementsscreen.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -167,53 +169,94 @@ Widget build(BuildContext context) {
     );
   }
 
-  Drawer buildDrawer(BuildContext context) {
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          DrawerHeader(
-            decoration: BoxDecoration(
-              color: Colors.blue,
-            ),
-            child: Text(
-              'Dashboard',
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 25,
-                fontWeight: FontWeight.bold,
+ Drawer buildDrawer(BuildContext context) {
+  return Drawer(
+    child: StreamBuilder(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(FirebaseAuth.instance.currentUser!.uid)
+          .snapshots(),
+      builder: (BuildContext context, AsyncSnapshot<DocumentSnapshot> snapshot) {
+        if (!snapshot.hasData) {
+          return CircularProgressIndicator();
+        }
+
+        String userRole = snapshot.data!['role'];
+
+        return ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: BoxDecoration(
+                color: Colors.blue,
+              ),
+              child: Text(
+                'User Details',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 25,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-          ),
-          ListTile(
-            title: Text('Owner details'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => OwnerDetailsPage(),
-                ),
-              );
-            },
-          ),
-          ListTile(
-            title: Text('Crew Member details'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => CrewMembersPage(),
-                ),
-              );
-            },
-          ),
-          
-        ],
-      ),
-    );
-  }
+            ListTile(
+              title: Text('Owner details'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => OwnerDetailsPage(),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              title: Text('Crew Member details'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => CrewMembersPage(),
+                  ),
+                );
+              },
+            ),
+            if (userRole == 'Headowner') // Show if the role is 'Headowner'
+              ListTile(
+                title: Text('Writing Access'),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Navigate to the assign access page
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => AssignAccessPage(),
+                    ),
+                  );
+                },
+              ),
+                    if (userRole == 'Headowner') // Show if the role is 'Headowner'
+              ListTile(
+                title: Text('Boat Maintenanceamounts '),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Navigate to the assign access page
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => BoatMaintenanceAmountPage(),
+                    ),
+                  );
+                },
+              ), 
+          ],
+        );
+      },
+    ),
+  );
+}
 
   BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeScreen) {
     return BottomNavigationBar(

@@ -23,6 +23,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   TextEditingController crewPhoneController = TextEditingController();
   TextEditingController crewAmountController = TextEditingController();
   String? organizationId;
+  String? assigned;
   bool isHomeScreen = false;
 
   String selectedMonth = 'Jan';
@@ -57,6 +58,7 @@ Map<String, TextEditingController> ownerInvestmentControllers = {};
 void dispose() {
   super.dispose();
  _fetchOrganizationId();
+ _fetchAssigned();
   crewAmountControllers.values.forEach((controller) => controller.dispose());
 }
 
@@ -66,6 +68,16 @@ Future<String?> _fetchOrganizationId() async {
       DocumentSnapshot userSnapshot =
           await FirebaseFirestore.instance.collection('users').doc(userId).get();
       return userSnapshot['organizationId'];
+    }
+    return null;
+  }
+
+Future<String?> _fetchAssigned() async {
+    String? userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId != null) {
+      DocumentSnapshot userSnapshot =
+          await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      return userSnapshot['assigned'];
     }
     return null;
   }
@@ -1004,11 +1016,12 @@ Future<void> _addNewEntry() async {
 
       if (userDoc.exists) {
         String userRole = userDoc['role']; // Assuming you have a 'role' field for the user
+        String assigned = userDoc['assigned']; 
         String organizationId =
             userDoc['organizationId']; // Assuming you have an 'organizationId' field for the user
 
         // Step 3: Check if the user's role is 'Headowner'
-        if (userRole == 'Headowner') {
+        if (userRole == 'Headowner' || assigned == 'Yes') {
           // Step 4: Allow Headowner to create new entry collection for their organization with four subcollections
           CollectionReference organizationCollection =
               FirebaseFirestore.instance.collection('organizations');

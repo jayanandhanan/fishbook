@@ -60,6 +60,7 @@ class _WorkManagementPageState extends State<WorkManagementPage> {
   bool isCrewMemberInChargeFilterActive = false;
   String? userRole; 
   String? organizationId;
+  String? assigned;
   bool isHomeScreen = false;
 
   @override
@@ -68,6 +69,7 @@ class _WorkManagementPageState extends State<WorkManagementPage> {
     _fetchOwnerDetails();
     _fetchCrewMemberDetails();
     _fetchUserRoleAndOrganizationId();
+    _fetchAssigned();
   }
   
  Future<void> _fetchUserRoleAndOrganizationId() async {
@@ -82,7 +84,16 @@ class _WorkManagementPageState extends State<WorkManagementPage> {
   }
 }
 
-
+ Future<void> _fetchAssigned() async {
+    String? userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId != null) {
+      DocumentSnapshot userSnapshot =
+          await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      setState(() {
+        assigned = userSnapshot['assigned'];
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -197,7 +208,7 @@ class _WorkManagementPageState extends State<WorkManagementPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                if (userRole == 'Headowner')
+                if (userRole == 'Headowner' || assigned == 'Yes')
                 ElevatedButton(
                   onPressed: () {
                 setState(() {
@@ -378,7 +389,7 @@ if (isCrewMemberInChargeFilterActive && filterByCrewMemberInCharge != null && fi
       DataColumn(label: Text('Mode of Payment')), 
       DataColumn(label: Text('Incharge')),
        DataColumn(label: Text('Assigned Sailing Date')),
-      if (userRole == 'Headowner')
+      if (userRole == 'Headowner' || assigned == 'Yes')
       DataColumn(label: Text('Actions')),
     ];
   }
@@ -404,18 +415,18 @@ if (isCrewMemberInChargeFilterActive && filterByCrewMemberInCharge != null && fi
       DataCell(Text(work['modeofpayment'])),
       DataCell(Text(work['incharge'])),
        DataCell(Text(_formatDate((work['assignedSailingDate'] as Timestamp).toDate()))), // New cell
-      if (userRole == 'Headowner')
+      if (userRole == 'Headowner' || assigned == 'Yes')
       DataCell(
         Row(
           children: [
-            if (userRole == 'Headowner')
+            if (userRole == 'Headowner' || assigned == 'Yes')
             IconButton(
               icon: Icon(Icons.edit),
               onPressed: () {
                 editWorkDialog(context, work);
               },
             ),
-            if (userRole == 'Headowner')
+            if (userRole == 'Headowner' || assigned =='Yes')
             IconButton(
               icon: Icon(Icons.delete),
               onPressed: () {

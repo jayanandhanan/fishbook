@@ -16,6 +16,7 @@ class FishingSailPayment extends StatefulWidget {
 class _FishingSailPaymentState extends State<FishingSailPayment> {
   String? _organizationId;
   String? userRole;
+  String? assigned;
   FilterType? _activeFilter;
  DateTime? _selectedDate;
  bool isHomeScreen = false;
@@ -42,6 +43,7 @@ class _FishingSailPaymentState extends State<FishingSailPayment> {
       });
     });
     _fetchUserRole();
+    _fetchAssigned();
   }
 
   Future<String?> _fetchOrganizationId() async {
@@ -61,6 +63,17 @@ class _FishingSailPaymentState extends State<FishingSailPayment> {
           await FirebaseFirestore.instance.collection('users').doc(userId).get();
       setState(() {
         userRole = userSnapshot['role'];
+      });
+    }
+  }
+
+  Future<void> _fetchAssigned() async {
+    String? userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId != null) {
+      DocumentSnapshot userSnapshot =
+          await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      setState(() {
+        assigned = userSnapshot['assigned'];
       });
     }
   }
@@ -93,7 +106,7 @@ Widget build(BuildContext context) {
                     },
                     child: Text('Crew Member Payment'),
                   ),
-                ), if (userRole == 'Headowner')
+                ), if (userRole == 'Headowner'|| userRole== 'Co-owner' || assigned == 'Yes')
                 SizedBox(
                   width: MediaQuery.of(context).size.width / 3,
                   child: ElevatedButton(
@@ -208,6 +221,7 @@ BottomNavigationBar buildBottomNavigationBar(BuildContext context, bool isHomeSc
       },
     );
   }
+  
   Widget _buildFilterButton(
       String title, FilterType filterType, Function()? onPressed) {
     return ElevatedButton(
@@ -304,7 +318,7 @@ payments.sort((a, b) {
                   children: [
                     Text(formattedDate),
                     // Updated code with IconButton
-                        if (userRole == 'Headowner')
+                        if (userRole == 'Headowner' || assigned =='Yes')
                                IconButton(
                           onPressed: () {
                          _showDatePickerDialog(paymentDoc, dateTime, userRole!);
@@ -321,7 +335,7 @@ payments.sort((a, b) {
                 Row(
                   children: [
                     Text(paidAmountString),
-                    if (userRole == 'Headowner')
+                    if (userRole == 'Headowner' || assigned =='Yes')
                       IconButton(
                         onPressed: () {
                           _showPaidAmountDialog(paymentDoc, paidAmount, userType, userRole!);
@@ -335,7 +349,7 @@ payments.sort((a, b) {
               DataCell(
                 TextButton(
                   onPressed: () {
-                    if (userRole == 'Headowner') {
+                    if (userRole == 'Headowner' || assigned == 'Yes') {
                       _showPaymentStatusDialog(paymentDoc, userRole!);
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -351,7 +365,7 @@ payments.sort((a, b) {
               DataCell(
                 TextButton(
                   onPressed: () {
-                    if (userRole == 'Headowner') {
+                    if (userRole == 'Headowner' || assigned == 'Yes') {
                       _showModeOfPaymentDialog(paymentDoc, userRole!);
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -448,7 +462,7 @@ void _showModeOfPaymentDialog(DocumentSnapshot paymentDoc,String userRole) {
 
   void _showDatePickerDialog(
       DocumentSnapshot paymentDoc, DateTime currentDate, String userRole) async {
-    if (userRole != 'Headowner') {
+    if (userRole != 'Headowner' && assigned != 'Yes') {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('You are not authorized to perform this action.'),
@@ -496,7 +510,7 @@ void _showModeOfPaymentDialog(DocumentSnapshot paymentDoc,String userRole) {
   }
 
   void _showPaymentStatusDialog(DocumentSnapshot paymentDoc, String userRole) {
-    if (userRole != 'Headowner') {
+    if (userRole != 'Headowner' && assigned != 'Yes') {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('You are not authorized to perform this action.'),
@@ -535,7 +549,7 @@ void _showModeOfPaymentDialog(DocumentSnapshot paymentDoc,String userRole) {
   Future<void> _updatePaidAmount(
       DocumentSnapshot paymentDoc, String paidAmountString, DateTime selectedDate, String userType) async {
     try {
-      if (userRole != 'Headowner') {
+      if (userRole != 'Headowner' && assigned!='Yes') {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('You are not authorized to perform this action.'),
