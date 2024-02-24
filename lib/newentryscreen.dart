@@ -231,7 +231,15 @@ Future<String?> _fetchAssigned() async {
                   child: Text('Add Boat Maintenance Amount'),
                 ),
                 SizedBox(width: 10),
-                Text('Boat Maintenance Amount: $boatMaintenanceAmount'),
+    Expanded(
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Text(
+          'Boat Maintenance Amount: $boatMaintenanceAmount',
+          // Add style or other configurations as needed
+        ),
+      ),
+    ),
               ],
             ),
               SizedBox(height: 20),
